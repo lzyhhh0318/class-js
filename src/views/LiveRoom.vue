@@ -52,7 +52,7 @@ const isTeacherStreaming = ref(false)
 const goBack = () => { router.push('/dashboard') }
 
 // ===== 核心配置 (必须和教师端完全一致) =====
-const APP_ID = 'EF5C5abed935411c8366d07D8af1d3ef' 
+const APP_ID = 'ef5c5abed935411c8366d07d8af1d3ef' 
 const CHANNEL = 'class_room_1'      
 const TOKEN = null                  
 const UID = Math.floor(Math.random() * 10000) // 随机生成学生的临时 ID

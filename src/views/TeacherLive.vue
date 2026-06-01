@@ -22,7 +22,7 @@ import { ref, onUnmounted } from 'vue'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 
 // ===== 核心配置 =====
-const APP_ID = 'EF5C5abed935411c8366d07D8af1d3ef' // 替换为你的真实 AppID
+const APP_ID = 'ef5c5abed935411c8366d07d8af1d3ef' // 替换为你的真实 AppID
 const CHANNEL = 'class_room_1'      // 频道名，学生端必须和这个一致
 const TOKEN = null                  // 调试模式下设为 null 即可
 const UID = Math.floor(Math.random() * 10000) // 随机生成教师的临时 ID
