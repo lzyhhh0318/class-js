@@ -11,6 +11,7 @@
   "dependencies": {
     "agora-rtc-sdk-ng": "^4.24.4",
     "agora-rtm-sdk": "^1.5.1",
+    "@supabase/supabase-js": "^2.45.2",
     "vue": "^3.5.32",
     "vue-router": "^5.0.4"
   },

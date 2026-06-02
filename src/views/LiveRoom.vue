@@ -95,13 +95,18 @@
             </header>
             <div class="panel-body" v-show="panelStates.library">
               <div class="resource-list">
-                <div class="resource-item" v-for="item in resourceItems" :key="item.id" @click="openResourceItem(item)">
+                <div class="resource-item" v-for="item in visibleResources" :key="item.id" @click="openResourceItem(item)">
                   <div class="resource-meta">
                     <span class="resource-name">{{ item.name }}</span>
                     <span class="resource-type">{{ item.type }}</span>
                   </div>
-                  <button class="resource-btn">查看</button>
+                  <button class="resource-btn" :disabled="!item.available">{{ item.available ? '查看' : '未开放' }}</button>
                 </div>
+              </div>
+              <div class="resource-player" v-if="selectedResource">
+                <div class="player-title">{{ selectedResource.name }}</div>
+                <video v-if="selectedResource.type === 'VIDEO'" :src="selectedResource.url" controls></video>
+                <div class="player-hint" v-else>该资源为文档类型，后端接入后将提供查看入口。</div>
               </div>
               <div class="panel-hint">接口预留：资源库列表与下载</div>
             </div>
@@ -121,6 +126,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import AgoraRTM from 'agora-rtm-sdk'
+import { supabase } from '../lib/supabaseClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -156,6 +162,8 @@ const resourceItems = ref([
   { id: 'pdf-02', name: '第2讲 需求分析', type: 'PDF' },
   { id: 'ppt-03', name: '第3讲 架构设计', type: 'PPT' }
 ])
+const visibleResources = ref([])
+const selectedResource = ref(null)
 
 let rtcClient = null, rtmClient = null, rtmChannel = null
 
@@ -178,13 +186,55 @@ const postBoardMessage = () => {
 }
 
 const openResourceItem = (item) => {
-  console.log('open resource', item)
+  if (!item.available) return
+  selectedResource.value = item
 }
 
 const showFly = (text) => {
   const id = Date.now()
   floatingDanmakus.value.push({ id, text, top: Math.random() * 400 + 20 })
   setTimeout(() => { floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) }, 5000)
+}
+
+const getDisplayNameFromUrl = (url) => {
+  if (!url) return '录播视频'
+  const fileName = url.split('/').pop() || '录播视频'
+  return decodeURIComponent(fileName).replace(/^[0-9]+_/, '')
+}
+
+const fetchCourseRecords = async () => {
+  const { data, error } = await supabase
+    .from('course_records')
+    .select('id, course_id, video_url, created_at, start_at')
+    .eq('course_id', String(courseId))
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error(error)
+    visibleResources.value = resourceItems.value.map(item => ({ ...item, available: true, url: '' }))
+    return
+  }
+
+  const now = Date.now()
+  const recordings = (data || []).map(item => {
+    const startAt = item.start_at || item.created_at
+    const available = new Date(startAt).getTime() <= now
+    return {
+      id: item.id,
+      name: getDisplayNameFromUrl(item.video_url),
+      type: 'VIDEO',
+      available,
+      startAt,
+      url: item.video_url
+    }
+  })
+
+  visibleResources.value = [...resourceItems.value, ...recordings].map(item => {
+    if (item.type !== 'VIDEO') {
+      return { ...item, available: true, url: '' }
+    }
+    return item
+  })
 }
 
 const initStudentLive = async () => {
@@ -266,6 +316,7 @@ onMounted(() => {
     sessionStorage.setItem('displayName', '学生姓名')
   }
   initStudentLive()
+  fetchCourseRecords()
 })
 onUnmounted(async () => {
   if (rtcClient) await rtcClient.leave()
@@ -620,6 +671,38 @@ onUnmounted(async () => {
   padding: 4px 12px;
   border-radius: 999px;
   font-size: 11px;
+}
+
+.resource-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.resource-player {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.resource-player video {
+  width: 100%;
+  border-radius: 10px;
+  background: #111827;
+}
+
+.player-hint {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .panel-hint {

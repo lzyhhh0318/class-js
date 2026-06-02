@@ -38,6 +38,30 @@
           </button>
           <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">{{ showFloatingDanmaku ? '🚫 关飘屏' : '📢 开飘屏' }}</button>
         </div>
+
+        <div class="resource-panel">
+          <div class="resource-header">📼 录播与资料管理</div>
+          <div class="resource-form">
+            <input v-model="resourceTitle" type="text" placeholder="资源名称（如：第4讲 录播）" />
+            <input v-model="resourceStartAt" type="datetime-local" />
+            <input ref="resourceFileInput" type="file" accept="video/*" @change="handleResourceFileChange" :disabled="isUploading" />
+            <div class="resource-actions">
+              <button class="toggle-btn" @click="addResource('prerecord')" :disabled="isUploading">上传预录视频</button>
+              <button class="toggle-btn" @click="addResource('recording')" :disabled="isUploading">保存直播录像</button>
+            </div>
+            <div class="resource-hint">说明：视频会上传到 Supabase Storage，并写入 course_records 表。</div>
+          </div>
+          <div class="resource-list">
+            <div class="resource-item" v-for="item in resourceItems" :key="item.id">
+              <div class="resource-meta">
+                <div class="resource-name">{{ item.name }}</div>
+                <div class="resource-sub">可观看时间：{{ formatStartAt(item.startAt) }}</div>
+              </div>
+              <button class="ghost-btn" @click="openVideoLink(item.videoUrl)">打开</button>
+            </div>
+            <div class="resource-empty" v-if="resourceItems.length === 0">暂无录播资源</div>
+          </div>
+        </div>
       </section>
 
       <aside class="danmaku-sidebar" v-show="isClassStarted && showDanmaku">
@@ -57,6 +81,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import AgoraRTM from 'agora-rtm-sdk'
+import { supabase } from '../lib/supabaseClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -80,6 +105,13 @@ const floatingDanmakus = ref([])
 
 let rtcClient = null, screenClient = null, rtmClient = null, rtmChannel = null
 let localAudioTrack = null, localVideoTrack = null, screenVideoTrack = null
+
+const resourceTitle = ref('')
+const resourceStartAt = ref('')
+const resourceFile = ref(null)
+const resourceFileInput = ref(null)
+const resourceItems = ref([])
+const isUploading = ref(false)
 
 const formatTime = (ts) => {
   const d = new Date(ts)
@@ -209,11 +241,127 @@ const stopLive = async () => {
   router.push('/dashboard')
 }
 
+const handleResourceFileChange = (event) => {
+  const file = event.target.files && event.target.files[0]
+  resourceFile.value = file || null
+}
+
+const getFileExtension = (name) => {
+  const dotIndex = name.lastIndexOf('.')
+  return dotIndex >= 0 ? name.slice(dotIndex) : ''
+}
+
+const normalizeTitle = (title) => {
+  const safe = title.replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '')
+  return safe || `recording_${Date.now()}`
+}
+
+const getDisplayNameFromUrl = (url) => {
+  if (!url) return '录播视频'
+  const fileName = url.split('/').pop() || '录播视频'
+  return decodeURIComponent(fileName).replace(/^[0-9]+_/, '')
+}
+
+const fetchCourseRecords = async () => {
+  const { data, error } = await supabase
+    .from('course_records')
+    .select('id, course_id, video_url, created_at, start_at')
+    .eq('course_id', String(courseId))
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error(error)
+    return
+  }
+
+  resourceItems.value = (data || []).map(item => ({
+    id: item.id,
+    name: getDisplayNameFromUrl(item.video_url),
+    videoUrl: item.video_url,
+    startAt: item.start_at || item.created_at
+  }))
+}
+
+const addResource = async (source) => {
+  if (!resourceTitle.value.trim()) return
+  if (!resourceStartAt.value) return
+  if (!resourceFile.value) return
+
+  isUploading.value = true
+
+  try {
+    const extension = getFileExtension(resourceFile.value.name)
+    const baseName = normalizeTitle(resourceTitle.value.trim())
+    const filePath = `${courseId}/${Date.now()}_${baseName}${extension}`
+
+    const { error: uploadError } = await supabase
+      .storage
+      .from('videos')
+      .upload(filePath, resourceFile.value, { contentType: resourceFile.value.type })
+
+    if (uploadError) throw uploadError
+
+    const { data: publicData } = supabase
+      .storage
+      .from('videos')
+      .getPublicUrl(filePath)
+
+    const startAt = new Date(resourceStartAt.value).toISOString()
+    const payload = {
+      course_id: String(courseId),
+      video_url: publicData.publicUrl,
+      start_at: startAt
+    }
+
+    const { error: insertError } = await supabase
+      .from('course_records')
+      .insert(payload)
+
+    if (insertError && insertError.message && insertError.message.includes('start_at')) {
+      const { error: retryError } = await supabase
+        .from('course_records')
+        .insert({
+          course_id: String(courseId),
+          video_url: publicData.publicUrl
+        })
+
+      if (retryError) throw retryError
+    } else if (insertError) {
+      throw insertError
+    }
+
+    resourceTitle.value = ''
+    resourceStartAt.value = ''
+    resourceFile.value = null
+    if (resourceFileInput.value) {
+      resourceFileInput.value.value = ''
+    }
+    await fetchCourseRecords()
+  } catch (error) {
+    console.error(error)
+    alert('上传失败，请检查 Supabase 配置或表结构。')
+  } finally {
+    isUploading.value = false
+  }
+}
+
+const openVideoLink = (url) => {
+  if (!url) return
+  window.open(url, '_blank')
+}
+
+const formatStartAt = (value) => {
+  if (!value) return '未设置'
+  const date = new Date(value)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
 onMounted(() => {
   sessionStorage.setItem('userRole', 'teacher')
   if (!sessionStorage.getItem('displayName')) {
     sessionStorage.setItem('displayName', '教师姓名')
   }
+  fetchCourseRecords()
 })
 
 onUnmounted(() => { stopLive() })
@@ -382,6 +530,85 @@ onUnmounted(() => { stopLive() })
   border-radius: 16px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+}
+
+.resource-panel {
+  margin-top: 16px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resource-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.resource-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resource-form input[type="text"],
+.resource-form input[type="datetime-local"] {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.resource-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.resource-hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resource-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.resource-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resource-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.resource-sub {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.resource-empty {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .media-controls {
