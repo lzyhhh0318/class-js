@@ -8,6 +8,17 @@
     </header>
 
     <main class="main-content">
+      <section class="video-stage">
+       <div class="danmaku-canvas" v-if="showFloatingDanmaku">
+          <div class="fly-item" v-for="dm in floatingDanmakus" :key="dm.id" :style="{top: dm.top + 'px'}">{{ dm.text }}</div>
+       </div>
+       <div id="screen-video" class="main-screen" v-show="isTeacherScreenOn"></div>
+       <div id="camera-video" :class="isTeacherScreenOn ? 'pip-window' : 'main-screen'" v-show="isTeacherCameraOn"></div>
+      </section>
+      <div class="video-controls">
+        <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">{{ showFloatingDanmaku ? '🚫 关弹幕' : '📢 开弹幕' }}</button>
+        <input v-model="inputText" @keyup.enter="sendDanmaku" placeholder="输入弹幕..." class="mock-input" />
+      </div>
       <section class="video-section">
         <div class="video-container" :class="{'has-screen': isTeacherScreenOn}">
           
@@ -60,9 +71,22 @@ const isTeacherCameraOn = ref(false)
 const isTeacherScreenOn = ref(false)
 const inputText = ref('')
 const activeDanmakus = ref([])
-
+const showFloatingDanmaku = ref(true);
+const floatingDanmakus = ref([]);
 let rtcClient = null, rtmClient = null, rtmChannel = null
+rtmChannel.on('ChannelMessage', (msg) => {
+  const id = Date.now();
+  floatingDanmakus.value.push({ id, text: msg.text, top: Math.random() * 400 + 20 });
+  setTimeout(() => { floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) }, 5000);
+});
 
+const sendDanmaku = async () => {
+  await rtmChannel.sendMessage({ text: inputText.value });
+  // 别忘了把自己发的也推到飘屏
+  const id = Date.now();
+  floatingDanmakus.value.push({ id, text: inputText.value, top: Math.random() * 400 + 20 });
+  inputText.value = '';
+};
 const goBack = () => { router.push('/dashboard') }
 
 const initStudentLive = async () => {

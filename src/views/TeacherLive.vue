@@ -8,7 +8,9 @@
     <main class="main-content">
       <section class="video-section">
         <div class="video-container" :class="{'has-screen': isScreenOn}">
-          
+          <div class="danmaku-canvas" v-if="showFloatingDanmaku">
+            <div class="fly-item" v-for="dm in floatingDanmakus" :key="dm.id" :style="{top: dm.top + 'px'}">{{ dm.text }}</div>
+          </div>  
           <div id="screen-video" class="main-screen" v-show="isScreenOn"></div>
           
           <div id="camera-video" 
@@ -34,6 +36,7 @@
           <button class="toggle-btn dm-toggle-btn" @click="showDanmaku = !showDanmaku">
             {{ showDanmaku ? '🔕 隐藏侧边弹幕' : '💬 展开侧边弹幕' }}
           </button>
+          <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">{{ showFloatingDanmaku ? '🚫 关飘屏' : '📢 开飘屏' }}</button>
         </div>
       </section>
 
@@ -80,7 +83,15 @@ const formatTime = (ts) => {
   const d = new Date(ts)
   return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`
 }
-
+const showFly = (text) => {
+  const id = Date.now();
+  floatingDanmakus.value.push({ id, text, top: Math.random() * 400 + 20 });
+  setTimeout(() => { floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) }, 5000);
+};
+rtmChannel.on('ChannelMessage', (msg) => {
+  danmakuList.value.push({ timestamp: Date.now(), content: msg.text });
+  showFly(msg.text);
+});
 const startClass = async () => {
   try {
     rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
@@ -203,7 +214,9 @@ onUnmounted(() => { stopLive() })
 .navbar { height: 60px; background-color: #2c3e50; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
 .logo { font-size: 18px; font-weight: bold; }
 .stop-btn { background: #ff4757; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight:bold;}
-
+.danmaku-canvas { position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 100; pointer-events: none; overflow: hidden; }
+.fly-item { position: absolute; animation: fly-left 5s linear; font-size: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; white-space: nowrap; }
+@keyframes fly-left { from { left: 100%; } to { left: -300px; } }
 /* 【修复四核心布局】：左右分栏，独立区域不遮挡 */
 .main-content { display: flex; flex-direction: row; height: calc(100vh - 60px); padding: 20px; gap: 20px; }
 .video-section { flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0; }
