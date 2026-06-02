@@ -74,7 +74,9 @@ const isClassStarted = ref(false)
 const isCameraOn = ref(false)
 const isScreenOn = ref(false)
 const showDanmaku = ref(true) // 弹幕面板开关
+const showFloatingDanmaku = ref(true)
 const danmakuList = ref([])
+const floatingDanmakus = ref([])
 
 let rtcClient = null, screenClient = null, rtmClient = null, rtmChannel = null
 let localAudioTrack = null, localVideoTrack = null, screenVideoTrack = null
@@ -88,10 +90,6 @@ const showFly = (text) => {
   floatingDanmakus.value.push({ id, text, top: Math.random() * 400 + 20 });
   setTimeout(() => { floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) }, 5000);
 };
-rtmChannel.on('ChannelMessage', (msg) => {
-  danmakuList.value.push({ timestamp: Date.now(), content: msg.text });
-  showFly(msg.text);
-});
 const startClass = async () => {
   try {
     rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
@@ -109,9 +107,11 @@ const startClass = async () => {
     await rtmChannel.join()
     rtmChannel.on('ChannelMessage', (message) => {
       danmakuList.value.push({ timestamp: Date.now(), content: message.text })
+      showFly(message.text)
     })
 
     isClassStarted.value = true
+    localStorage.setItem('liveCourseId', String(courseId))
     await toggleCamera()
   } catch (error) {
     alert('开启失败，请检查设备权限！')
@@ -203,6 +203,9 @@ const stopLive = async () => {
   if (rtmChannel) await rtmChannel.leave()
   if (rtmClient) await rtmClient.logout()
   isClassStarted.value = false
+  if (localStorage.getItem('liveCourseId') === String(courseId)) {
+    localStorage.removeItem('liveCourseId')
+  }
   router.push('/dashboard')
 }
 
