@@ -3,127 +3,184 @@
     <header class="navbar">
       <div class="logo">
         <button class="back-btn" @click="goBack">⬅ 返回主页</button>
-        🚀 智能软件工程平台
-      </div>
-      <div class="nav-right">
-        <button class="mock-btn notification-btn">🔔 通知(2-4组)</button>
-        <div class="user-avatar">🧑‍🎓 学生(2-1组)</div>
+        🚀 智能软件工程平台 - 🧑‍🎓 学生观看端 (课程ID: {{ courseId }})
       </div>
     </header>
 
     <main class="main-content">
-      
       <section class="video-stage">
-        <div class="video-player-placeholder">
-          <div id="remote-video" class="remote-video-container">
-            <div v-if="!isTeacherStreaming" class="waiting-text">
-              <h1>⏳ 正在等待老师开播...</h1>
-              <p>教师端推流后，画面将自动在此呈现</p>
-            </div>
+        <div class="video-player-placeholder" :class="{'has-screen': isTeacherScreenOn}">
+          
+          <div id="screen-video" class="main-screen" v-show="isTeacherScreenOn"></div>
+          
+          <div id="camera-video" class="pip-window" v-show="isTeacherCameraOn"></div>
+
+          <div v-if="!isTeacherScreenOn && !isTeacherCameraOn" class="waiting-text">
+            <h1>⏳ 正在等待老师开播...</h1>
+            <p>老师推流后，画面将自动在此呈现</p>
           </div>
         </div>
+
         <div class="danmaku-overlay">
-          <marquee scrollamount="8" class="danmaku-item">老师讲得太好了！</marquee>
-          <marquee scrollamount="12" class="danmaku-item" style="margin-top: 40px;">2-1组的弹幕测试~~</marquee>
+          <marquee scrollamount="10" class="danmaku-item" v-for="(dm, i) in activeDanmakus" :key="i" :style="{ marginTop: (i*35)+'px' }">
+            {{ dm }}
+          </marquee>
         </div>
+
         <div class="video-controls">
-          <input type="text" placeholder="发个弹幕参与互动..." class="mock-input" />
-          <button class="mock-btn primary">发送弹幕</button>
+          <input 
+            type="text" 
+            v-model="inputText" 
+            @keyup.enter="sendDanmaku"
+            placeholder="发个弹幕参与互动..." 
+            class="mock-input" 
+          />
+          <button class="mock-btn primary" @click="sendDanmaku">发送弹幕</button>
         </div>
       </section>
 
-      <aside class="interaction-sidebar">
-        </aside>
-
+      <aside class="interaction-sidebar"></aside>
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
+import AgoraRTM from 'agora-rtm-sdk'
 
+const route = useRoute()
 const router = useRouter()
-const currentTab = ref('ai')
-const isTeacherStreaming = ref(false)
 
-// 原来是 router.push('/')
-const goBack = () => { router.push('/dashboard') }
-
-// ===== 核心配置 (必须和教师端完全一致) =====
+// ===== 核心配置 =====
 const APP_ID = 'ef5c5abed935411c8366d07d8af1d3ef' 
-const CHANNEL = 'class_room_1'      
+const courseId = route.query.courseId || 'default'
+const CHANNEL = `course_room_${courseId}` 
 const TOKEN = null                  
-const UID = Math.floor(Math.random() * 10000) // 随机生成学生的临时 ID
+const UID = Math.floor(Math.random() * 10000)
+
+const isTeacherCameraOn = ref(false)
+const isTeacherScreenOn = ref(false)
+const inputText = ref('')
+const activeDanmakus = ref([]) // 用于页面飘屏显示的弹幕
 
 let rtcClient = null
+let rtmClient = null
+let rtmChannel = null
+
+const goBack = () => { router.push('/dashboard') }
 
 const initStudentLive = async () => {
+  // --- 1. RTC 视频接收 ---
   rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
 
-  // 监听远端用户（老师）发布视频流的事件
   rtcClient.on('user-published', async (user, mediaType) => {
-    // 订阅老师的流
     await rtcClient.subscribe(user, mediaType)
     
     if (mediaType === 'video') {
-      isTeacherStreaming.value = true
-      const remoteVideoTrack = user.videoTrack
-      // 将老师的画面播放在页面指定的 div 里
-      remoteVideoTrack.play('remote-video')
+      // 智能识别：UID >= 10000 规定为屏幕共享流，否则为摄像头流
+      if (user.uid >= 10000) {
+        isTeacherScreenOn.value = true
+        user.videoTrack.play('screen-video')
+      } else {
+        isTeacherCameraOn.value = true
+        user.videoTrack.play('camera-video')
+      }
     }
-    
     if (mediaType === 'audio') {
-      const remoteAudioTrack = user.audioTrack
-      remoteAudioTrack.play()
+      user.audioTrack.play()
     }
   })
 
-  // 监听老师下播事件
-  rtcClient.on('user-unpublished', (user) => {
-    isTeacherStreaming.value = false
+  rtcClient.on('user-unpublished', (user, mediaType) => {
+    if (mediaType === 'video') {
+      if (user.uid >= 10000) isTeacherScreenOn.value = false
+      else isTeacherCameraOn.value = false
+    }
   })
 
-  // 学生加入频道（只看，不发推流）
   try {
     await rtcClient.join(APP_ID, CHANNEL, TOKEN, UID)
-    console.log('加入直播间成功，等待接收画面')
-  } catch (error) {
-    console.error('加入直播间失败', error)
-  }
+  } catch (error) { console.error('RTC 加入失败', error) }
+
+  // --- 2. RTM 弹幕接收与发送 ---
+  rtmClient = AgoraRTM.createInstance(APP_ID)
+  await rtmClient.login({ uid: String(UID) })
+  rtmChannel = rtmClient.createChannel(CHANNEL)
+  await rtmChannel.join()
+
+  // 监听其他人的弹幕在自己屏幕上飘过
+  rtmChannel.on('ChannelMessage', (message) => {
+    showDanmakuOnScreen(message.text)
+  })
 }
 
-onMounted(() => {
-  initStudentLive()
-})
+const sendDanmaku = async () => {
+  if (!inputText.value.trim()) return
+  const text = inputText.value
+  
+  // 1. 发送给老师频道
+  await rtmChannel.sendMessage({ text: text })
+  
+  // 2. 自己的屏幕也显示
+  showDanmakuOnScreen(text)
+  
+  inputText.value = ''
+}
+
+const showDanmakuOnScreen = (text) => {
+  activeDanmakus.value.push(text)
+  // 8秒后自动清理飘过的弹幕
+  setTimeout(() => { activeDanmakus.value.shift() }, 8000)
+}
+
+onMounted(() => { initStudentLive() })
 
 onUnmounted(async () => {
-  if (rtcClient) {
-    await rtcClient.leave()
-  }
+  if (rtcClient) await rtcClient.leave()
+  if (rtmChannel) await rtmChannel.leave()
+  if (rtmClient) await rtmClient.logout()
 })
 </script>
 
 <style scoped>
-/* 在你原有的样式基础上，增加/修改这几行即可 */
 .app-wrapper { height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; background-color: #1e1e1e; color: #fff; overflow: hidden; }
 .navbar { height: 60px; background-color: #2d2d2d; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid #444; }
-.logo { display: flex; align-items: center; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: bold;}
 .back-btn { background: #444; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 .back-btn:hover { background: #666; }
-.nav-right { display: flex; gap: 15px; align-items: center; }
-.main-content { flex: 1; display: flex; padding: 20px; gap: 20px; height: calc(100vh - 60px); }
-.video-stage { flex: 7; display: flex; flex-direction: column; position: relative; background-color: #000; border-radius: 8px; overflow: hidden; border: 2px dashed #666; }
 
-/* 视频播放器容器调整 */
+.main-content { flex: 1; display: flex; padding: 20px; gap: 20px; height: calc(100vh - 60px); }
+.video-stage { flex: 7; display: flex; flex-direction: column; position: relative; background-color: #000; border-radius: 8px; overflow: hidden; border: 2px solid #555; }
+.interaction-sidebar { flex: 2; background-color: #2d2d2d; border-radius: 8px; border: 1px solid #444; }
+
+/* 视频播放器逻辑 (同老师端) */
 .video-player-placeholder { flex: 1; width: 100%; height: 100%; position: relative; }
-.remote-video-container { width: 100%; height: 100%; }
 .waiting-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #111; z-index: 10; }
 
-.danmaku-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 70%; pointer-events: none; z-index: 20;}
-.danmaku-item { font-size: 20px; font-weight: bold; color: #00ffcc; text-shadow: 1px 1px 2px #000; }
-.video-controls { height: 60px; background-color: #222; display: flex; padding: 10px; gap: 10px; z-index: 20; position: relative;}
-.interaction-sidebar { flex: 3; display: flex; flex-direction: column; background-color: #2d2d2d; border-radius: 8px; border: 1px solid #444; }
-/* ... 后续侧边栏样式同之前 ... */
+.main-screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;}
+
+/* 画中画样式 */
+.pip-window { 
+  position: absolute; bottom: 20px; right: 20px; 
+  width: 240px; height: 180px; 
+  background: #222; border: 2px solid #00d1b2; border-radius: 8px;
+  z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  resize: both; overflow: hidden; 
+  min-width: 150px; min-height: 100px; max-width: 800px; max-height: 500px;
+}
+/* 如果老师没开屏幕共享，摄像头直接铺满！ */
+.video-player-placeholder:not(.has-screen) .pip-window {
+  width: 100%; height: 100%; bottom: 0; right: 0; border: none; resize: none; border-radius: 0;
+}
+
+/* 弹幕浮层与输入框 */
+.danmaku-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 70%; pointer-events: none; z-index: 20; overflow: hidden;}
+.danmaku-item { font-size: 22px; font-weight: bold; color: #fff; text-shadow: 2px 2px 4px #000; position: absolute;}
+.video-controls { height: 70px; background-color: #222; display: flex; align-items: center; padding: 0 20px; gap: 15px; z-index: 20; border-top: 1px solid #444;}
+.mock-input { flex: 1; padding: 12px 15px; border-radius: 20px; border: none; outline: none; background: #333; color: white; font-size: 14px;}
+.mock-input:focus { border: 1px solid #00d1b2;}
+.mock-btn.primary { background: #00d1b2; color: white; padding: 10px 25px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer;}
+.mock-btn.primary:hover { background: #00b89c; }
 </style>
