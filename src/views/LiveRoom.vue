@@ -275,38 +275,194 @@ onUnmounted(async () => {
 </script>
 
 <style scoped>
-.app-wrapper { height: 100vh; display: flex; flex-direction: column; font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; background-color: #121212; color: #f8fafc; }
-.navbar { height: 60px; background-color: #1f2937; display: flex; align-items: center; padding: 0 20px; }
-.back-btn { background: #444; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 15px;}
-.main-content { display: flex; flex-direction: row; height: calc(100vh - 60px); padding: 20px; gap: 20px; }
-.video-section { flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0;}
-.video-container { flex: 1; background: #000; position: relative; border-radius: 8px; border: 2px solid #555; overflow: hidden; }
-
-.main-screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;}
-.pip-window { 
-  position: absolute; top: 20px; right: 20px; width: 240px; height: 180px; 
-  background: #222; border: 2px solid #00d1b2; border-radius: 8px;
-  z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  resize: both; overflow: hidden; cursor: move; min-width: 150px; min-height: 100px;
+.app-wrapper {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: radial-gradient(circle at top left, #f6f8ff 0%, #f4f6f9 40%, #eef1f6 100%);
+  color: #111827;
 }
-.video-player-placeholder:not(.has-screen) .pip-window { width: 100%; height: 100%; top: 0; left: 0; border: none; resize: none; border-radius: 0; }
 
-.danmaku-canvas { position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: 100; pointer-events: none; overflow: hidden; }
-.fly-item { position: absolute; animation: fly-left 5s linear; font-size: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; white-space: nowrap; }
-@keyframes fly-left { from { left: 100%; } to { left: -300px; } }
+.navbar {
+  height: 64px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
 
-.video-controls { height: 60px; background-color: #1f2937; display: flex; align-items: center; padding: 0 20px; gap: 15px; border-radius: 12px;}
-.mock-input { flex: 1; padding: 10px; border-radius: 20px; border: none; outline: none; background: #444; color: white;}
-.mock-btn.primary { background: #00d1b2; color: white; padding: 10px 25px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer;}
+.back-btn {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-right: 14px;
+  font-weight: 600;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: row;
+  height: calc(100vh - 64px);
+  padding: 24px;
+  gap: 24px;
+}
+
+.video-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.video-container {
+  flex: 1;
+  background: #0f172a;
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.main-screen {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.pip-window {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 240px;
+  height: 180px;
+  background: #111827;
+  border: 2px solid #111827;
+  border-radius: 14px;
+  z-index: 10;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.28);
+  resize: both;
+  overflow: hidden;
+  cursor: move;
+  min-width: 160px;
+  min-height: 110px;
+  max-width: 820px;
+  max-height: 520px;
+}
+
+.video-player-placeholder:not(.has-screen) .pip-window {
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  border: none;
+  resize: none;
+  border-radius: 0;
+}
+
+.waiting-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.danmaku-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fly-item {
+  position: absolute;
+  animation: fly-left 6s linear;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  text-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+  white-space: nowrap;
+}
+
+@keyframes fly-left {
+  from {
+    left: 100%;
+  }
+  to {
+    left: -320px;
+  }
+}
+
+.video-controls {
+  height: 64px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.toggle-btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  font-weight: 600;
+  background: #f9fafb;
+  color: #111827;
+  transition: all 0.2s ease;
+}
+
+.mock-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  outline: none;
+  background: #ffffff;
+  color: #111827;
+}
+
+.mock-btn.primary {
+  background: #111827;
+  color: #ffffff;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .side-panel {
   width: 320px;
-  background: #0f172a;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
 }
 
 .panel-group {
@@ -316,9 +472,9 @@ onUnmounted(async () => {
 }
 
 .panel-card {
-  background: rgba(15, 23, 42, 0.9);
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
   overflow: hidden;
 }
 
@@ -326,16 +482,17 @@ onUnmounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
+  padding: 12px 14px;
   cursor: pointer;
-  background: rgba(30, 41, 59, 0.7);
+  background: #f9fafb;
   font-weight: 600;
   font-size: 14px;
+  color: #111827;
 }
 
 .panel-toggle {
   font-size: 12px;
-  color: #94a3b8;
+  color: #6b7280;
 }
 
 .panel-body {
@@ -343,6 +500,7 @@ onUnmounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  color: #111827;
 }
 
 .ai-thread {
@@ -354,19 +512,20 @@ onUnmounted(async () => {
 }
 
 .ai-msg {
-  background: rgba(30, 41, 59, 0.7);
+  background: #f3f4f6;
   padding: 8px 10px;
   border-radius: 10px;
   font-size: 12px;
+  color: #111827;
 }
 
 .ai-msg.user {
-  background: rgba(14, 116, 144, 0.4);
+  background: #e0f2fe;
 }
 
 .ai-role {
   display: block;
-  color: #38bdf8;
+  color: #0284c7;
   font-size: 11px;
   margin-bottom: 4px;
 }
@@ -380,20 +539,20 @@ onUnmounted(async () => {
 .ai-input input,
 .board-input input {
   flex: 1;
-  background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  color: #f8fafc;
-  border-radius: 10px;
-  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+  border-radius: 999px;
+  padding: 6px 12px;
   font-size: 12px;
 }
 
 .ai-input button,
 .board-input button {
-  background: #38bdf8;
+  background: #111827;
   border: none;
-  color: #0f172a;
-  border-radius: 10px;
+  color: #ffffff;
+  border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
@@ -408,14 +567,14 @@ onUnmounted(async () => {
 }
 
 .board-item {
-  background: rgba(30, 41, 59, 0.6);
+  background: #f9fafb;
   padding: 8px 10px;
   border-radius: 10px;
   font-size: 12px;
 }
 
 .board-name {
-  color: #fbbf24;
+  color: #f59e0b;
   margin-right: 6px;
 }
 
@@ -426,7 +585,7 @@ onUnmounted(async () => {
   max-height: 160px;
   overflow-y: auto;
   font-size: 12px;
-  color: #e2e8f0;
+  color: #111827;
 }
 
 .resource-list {
@@ -439,7 +598,7 @@ onUnmounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(30, 41, 59, 0.6);
+  background: #f9fafb;
   padding: 8px 10px;
   border-radius: 10px;
   cursor: pointer;
@@ -451,21 +610,21 @@ onUnmounted(async () => {
 
 .resource-type {
   font-size: 11px;
-  color: #94a3b8;
+  color: #6b7280;
 }
 
 .resource-btn {
-  background: #fbbf24;
+  background: #111827;
   border: none;
-  color: #111827;
-  padding: 4px 10px;
+  color: #ffffff;
+  padding: 4px 12px;
   border-radius: 999px;
   font-size: 11px;
 }
 
 .panel-hint {
   font-size: 11px;
-  color: #64748b;
+  color: #6b7280;
 }
 
 @media (max-width: 1080px) {
