@@ -2,10 +2,11 @@
   <div class="dashboard-page">
     <header class="top-nav">
       <div class="logo">🚀 智能软件工程平台</div>
+      
       <div class="user-info">
-        <button class="global-ai-btn">✨ AI 智能答疑</button>
-        <div class="avatar" v-if="userRole === 'teacher'">👨‍🏫 教师端</div>
-        <div class="avatar" v-else>🧑‍🎓 学生端</div>
+        <div class="role-badge" :class="userRole">
+          当前身份: {{ userRole === 'teacher' ? '👨‍🏫 教师' : '🧑‍🎓 学生' }}
+        </div>
         <button class="logout-btn" @click="logout">退出登录</button>
       </div>
     </header>
@@ -26,7 +27,7 @@
             </span>
           </div>
           <div class="card-info">
-            <h3>{{ course.name }}</h3>
+            <h3>{{ course.name }} (房间号: {{ course.id }})</h3>
             <p v-if="userRole === 'student'">👨‍🏫 教师: {{ course.teacher }}</p>
           </div>
         </div>
@@ -42,24 +43,23 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const userRole = ref('student')
 
-// 页面加载时，获取当前用户的身份
+// 【修复问题一】：每次回到主页，严格读取登录时保存的身份，坚决不乱切换
 onMounted(() => {
   userRole.value = localStorage.getItem('userRole') || 'student'
 })
 
-// 核心逻辑：点击课程后的分发
-const handleCourseClick = (courseId) => {
-  if (userRole.value === 'teacher') {
-    router.push('/teacher') // 教师去推流页
-  } else {
-    router.push('/live')    // 学生去观看页
-  }
-}
-
-// 退出登录，清空身份并回到登录页
 const logout = () => {
   localStorage.removeItem('userRole')
   router.push('/')
+}
+
+// 【修复问题三】：点击课程时，将真实的 courseId 传给下一个页面！
+const handleCourseClick = (courseId) => {
+  if (userRole.value === 'teacher') {
+    router.push({ path: '/teacher', query: { courseId: courseId } })
+  } else {
+    router.push({ path: '/live', query: { courseId: courseId } })
+  }
 }
 
 const courseList = ref([
@@ -70,14 +70,14 @@ const courseList = ref([
 </script>
 
 <style scoped>
-/* 保持你原有的样式，仅新增退出按钮样式 */
 .dashboard-page { background-color: #f5f7fa; min-height: 100vh; font-family: sans-serif; color: #333; }
 .top-nav { height: 60px; background-color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .logo { font-size: 18px; font-weight: bold; color: #2c3e50; }
 .user-info { display: flex; gap: 20px; align-items: center; }
-.global-ai-btn { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 14px;}
-.logout-btn { background: #ff4757; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;}
-.logout-btn:hover { background: #ff6b81; }
+.role-badge { padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 14px;}
+.role-badge.teacher { background: #ffeaa7; color: #d63031; border: 1px solid #fdcb6e;}
+.role-badge.student { background: #81ecec; color: #00b894; border: 1px solid #00cec9;}
+.logout-btn { background: #ff4757; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
 .main-container { padding: 40px; max-width: 1200px; margin: 0 auto; }
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; margin-top: 20px; }
 .course-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; }
