@@ -27,6 +27,14 @@ const router = useRouter()
 const login = (role) => {
   // 将用户身份保存到浏览器的本地存储中
   localStorage.setItem('userRole', role)
+  sessionStorage.setItem('userRole', role)
+  const defaultName = role === 'teacher' ? '教师姓名' : '学生姓名'
+  if (!localStorage.getItem('displayName')) {
+    localStorage.setItem('displayName', defaultName)
+  }
+  if (!sessionStorage.getItem('displayName')) {
+    sessionStorage.setItem('displayName', defaultName)
+  }
   // 跳转到课程主页
   router.push('/dashboard')
 }

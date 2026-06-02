@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import AgoraRTM from 'agora-rtm-sdk'
@@ -208,6 +208,13 @@ const stopLive = async () => {
   }
   router.push('/dashboard')
 }
+
+onMounted(() => {
+  sessionStorage.setItem('userRole', 'teacher')
+  if (!sessionStorage.getItem('displayName')) {
+    sessionStorage.setItem('displayName', '教师姓名')
+  }
+})
 
 onUnmounted(() => { stopLive() })
 </script>

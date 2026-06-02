@@ -33,10 +33,79 @@
         </div>
       </section>
 
-      <aside class="danmaku-sidebar">
-        <div class="board-title">💬 交流面板</div>
-        <div class="danmaku-list">
-          <div class="dm-item" v-for="(dm, i) in activeDanmakus" :key="i">{{ dm }}</div>
+      <aside class="side-panel">
+        <div class="panel-group">
+          <section class="panel-card">
+            <header class="panel-header" @click="togglePanel('ai')">
+              <div class="panel-title">🤖 AI助手</div>
+              <span class="panel-toggle">{{ panelStates.ai ? '收起' : '展开' }}</span>
+            </header>
+            <div class="panel-body" v-show="panelStates.ai">
+              <div class="ai-thread">
+                <div class="ai-msg" v-for="(msg, index) in aiMessages" :key="index" :class="msg.role">
+                  <span class="ai-role">{{ msg.role === 'user' ? '我' : 'AI' }}</span>
+                  <p>{{ msg.content }}</p>
+                </div>
+              </div>
+              <div class="ai-input">
+                <input type="text" v-model="aiInput" placeholder="输入问题或上传图片的说明" />
+                <button @click="sendAiQuestion">发送</button>
+              </div>
+              <div class="panel-hint">接口预留：POST /api/ai/chat</div>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <header class="panel-header" @click="togglePanel('board')">
+              <div class="panel-title">📝 留言板</div>
+              <span class="panel-toggle">{{ panelStates.board ? '收起' : '展开' }}</span>
+            </header>
+            <div class="panel-body" v-show="panelStates.board">
+              <div class="board-list">
+                <div class="board-item" v-for="(item, index) in boardMessages" :key="index">
+                  <span class="board-name">{{ item.name }}</span>
+                  <span class="board-text">{{ item.text }}</span>
+                </div>
+              </div>
+              <div class="board-input">
+                <input type="text" v-model="boardInput" placeholder="留言给老师或同学" />
+                <button @click="postBoardMessage">发布</button>
+              </div>
+              <div class="panel-hint">接口预留：留言板写入与拉取</div>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <header class="panel-header" @click="togglePanel('danmaku')">
+              <div class="panel-title">💬 弹幕面板</div>
+              <span class="panel-toggle">{{ panelStates.danmaku ? '收起' : '展开' }}</span>
+            </header>
+            <div class="panel-body" v-show="panelStates.danmaku">
+              <div class="danmaku-list">
+                <div class="dm-item" v-for="(dm, i) in activeDanmakus" :key="i">{{ dm }}</div>
+              </div>
+              <div class="panel-hint">接口预留：弹幕数据库查询与归档</div>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <header class="panel-header" @click="togglePanel('library')">
+              <div class="panel-title">📚 资料库</div>
+              <span class="panel-toggle">{{ panelStates.library ? '收起' : '展开' }}</span>
+            </header>
+            <div class="panel-body" v-show="panelStates.library">
+              <div class="resource-list">
+                <div class="resource-item" v-for="item in resourceItems" :key="item.id" @click="openResourceItem(item)">
+                  <div class="resource-meta">
+                    <span class="resource-name">{{ item.name }}</span>
+                    <span class="resource-type">{{ item.type }}</span>
+                  </div>
+                  <button class="resource-btn">查看</button>
+                </div>
+              </div>
+              <div class="panel-hint">接口预留：资源库列表与下载</div>
+            </div>
+          </section>
         </div>
       </aside>
     </main>
@@ -68,10 +137,49 @@ const inputText = ref('')
 const activeDanmakus = ref([])
 const showFloatingDanmaku = ref(true)
 const floatingDanmakus = ref([])
+const panelStates = ref({
+  ai: true,
+  board: false,
+  danmaku: true,
+  library: false
+})
+const aiInput = ref('')
+const aiMessages = ref([
+  { role: 'assistant', content: '你好，我是课堂 AI 助手，可以帮你整理知识点。' }
+])
+const boardInput = ref('')
+const boardMessages = ref([
+  { name: '系统', text: '欢迎留言，老师下课后会集中回复。' }
+])
+const resourceItems = ref([
+  { id: 'ppt-01', name: '第1讲 课程导论', type: 'PPT' },
+  { id: 'pdf-02', name: '第2讲 需求分析', type: 'PDF' },
+  { id: 'ppt-03', name: '第3讲 架构设计', type: 'PPT' }
+])
 
 let rtcClient = null, rtmClient = null, rtmChannel = null
 
 const goBack = () => { router.push('/dashboard') }
+const togglePanel = (key) => {
+  panelStates.value[key] = !panelStates.value[key]
+}
+
+const sendAiQuestion = () => {
+  if (!aiInput.value.trim()) return
+  aiMessages.value.push({ role: 'user', content: aiInput.value })
+  aiMessages.value.push({ role: 'assistant', content: '已收到问题，接口对接后将返回答案。' })
+  aiInput.value = ''
+}
+
+const postBoardMessage = () => {
+  if (!boardInput.value.trim()) return
+  boardMessages.value.unshift({ name: '我', text: boardInput.value })
+  boardInput.value = ''
+}
+
+const openResourceItem = (item) => {
+  console.log('open resource', item)
+}
 
 const showFly = (text) => {
   const id = Date.now()
@@ -152,7 +260,13 @@ const onDrag = (e) => {
 }
 const stopDrag = () => { isDragging = false; document.removeEventListener('mousemove', onDrag); document.removeEventListener('mouseup', stopDrag); }
 
-onMounted(() => { initStudentLive() })
+onMounted(() => {
+  sessionStorage.setItem('userRole', 'student')
+  if (!sessionStorage.getItem('displayName')) {
+    sessionStorage.setItem('displayName', '学生姓名')
+  }
+  initStudentLive()
+})
 onUnmounted(async () => {
   if (rtcClient) await rtcClient.leave()
   if (rtmChannel) await rtmChannel.leave()
@@ -161,8 +275,8 @@ onUnmounted(async () => {
 </script>
 
 <style scoped>
-.app-wrapper { height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; background-color: #1e1e1e; color: #fff; }
-.navbar { height: 60px; background-color: #2d2d2d; display: flex; align-items: center; padding: 0 20px; }
+.app-wrapper { height: 100vh; display: flex; flex-direction: column; font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; background-color: #121212; color: #f8fafc; }
+.navbar { height: 60px; background-color: #1f2937; display: flex; align-items: center; padding: 0 20px; }
 .back-btn { background: #444; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 15px;}
 .main-content { display: flex; flex-direction: row; height: calc(100vh - 60px); padding: 20px; gap: 20px; }
 .video-section { flex: 1; display: flex; flex-direction: column; gap: 15px; min-width: 0;}
@@ -181,10 +295,186 @@ onUnmounted(async () => {
 .fly-item { position: absolute; animation: fly-left 5s linear; font-size: 24px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; white-space: nowrap; }
 @keyframes fly-left { from { left: 100%; } to { left: -300px; } }
 
-.video-controls { height: 60px; background-color: #2d2d2d; display: flex; align-items: center; padding: 0 20px; gap: 15px; border-radius: 8px;}
+.video-controls { height: 60px; background-color: #1f2937; display: flex; align-items: center; padding: 0 20px; gap: 15px; border-radius: 12px;}
 .mock-input { flex: 1; padding: 10px; border-radius: 20px; border: none; outline: none; background: #444; color: white;}
 .mock-btn.primary { background: #00d1b2; color: white; padding: 10px 25px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer;}
-.danmaku-sidebar { width: 300px; background: #222; border-radius: 8px; border: 1px solid #444; display: flex; flex-direction: column; }
-.board-title { padding: 15px; font-size: 14px; font-weight: bold; border-bottom: 1px solid #444; color: #00ffcc;}
-.danmaku-list { padding: 10px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #ddd;}
+.side-panel {
+  width: 320px;
+  background: #0f172a;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-card {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: rgba(30, 41, 59, 0.7);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.panel-toggle {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.panel-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.ai-msg {
+  background: rgba(30, 41, 59, 0.7);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.ai-msg.user {
+  background: rgba(14, 116, 144, 0.4);
+}
+
+.ai-role {
+  display: block;
+  color: #38bdf8;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.ai-input,
+.board-input {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-input input,
+.board-input input {
+  flex: 1;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #f8fafc;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.ai-input button,
+.board-input button {
+  background: #38bdf8;
+  border: none;
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.board-item {
+  background: rgba(30, 41, 59, 0.6);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.board-name {
+  color: #fbbf24;
+  margin-right: 6px;
+}
+
+.danmaku-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resource-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.6);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.resource-name {
+  font-size: 12px;
+}
+
+.resource-type {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.resource-btn {
+  background: #fbbf24;
+  border: none;
+  color: #111827;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.panel-hint {
+  font-size: 11px;
+  color: #64748b;
+}
+
+@media (max-width: 1080px) {
+  .main-content {
+    flex-direction: column;
+  }
+
+  .side-panel {
+    width: 100%;
+  }
+}
 </style>
