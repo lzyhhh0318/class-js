@@ -119,42 +119,41 @@
       <div class="fly-item" v-for="dm in floatingDanmakus" :key="dm.id" :style="{top: dm.top + 'px'}">{{ dm.text }}</div>
     </div>
 
-    <div class="resource-modal-overlay" v-if="showResourcePreview" @click.self="closeResourcePreview">
-      <div class="resource-modal">
-        <div class="modal-header">
-          <span class="modal-title">{{ selectedResource?.name }}</span>
-          <button class="modal-close" @click="closeResourcePreview">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="ppt-preview" v-if="selectedResource?.type === 'PPT'">
-            <div class="ppt-toolbar">
-              <button class="nav-btn" :disabled="currentPage <= 1" @click="currentPage--">← 上一页</button>
-              <span class="page-indicator">{{ currentPage }} / {{ selectedResource?.pages || 10 }}</span>
-              <button class="nav-btn" :disabled="currentPage >= (selectedResource?.pages || 10)" @click="currentPage++">下一页 →</button>
-            </div>
-            <div class="ppt-content">
-              <div class="ppt-slide">
-                <div class="slide-header">第 {{ currentPage }} 页</div>
-                <div class="slide-body">
-                  <div class="slide-title">《{{ selectedResource?.name }}》</div>
-                  <div class="slide-content">
-                    <p>这是第 {{ currentPage }} 页的内容</p>
-                    <p>章节标题：软件工程基础</p>
-                    <p>主要知识点：{{ getSlideContent(currentPage) }}</p>
-                  </div>
+    <div class="float-window" v-if="showResourcePreview" :style="floatWindowStyle" @mousedown="startFloatDrag">
+      <div class="float-header" @mousedown.stop>
+        <span class="float-title">{{ selectedResource?.name }}</span>
+        <button class="float-close" @click="closeResourcePreview">×</button>
+      </div>
+      <div class="float-body">
+        <div class="ppt-preview" v-if="selectedResource?.type === 'PPT'">
+          <div class="ppt-toolbar">
+            <button class="nav-btn" :disabled="currentPage <= 1" @click="currentPage--">← 上一页</button>
+            <span class="page-indicator">{{ currentPage }} / {{ selectedResource?.pages || 10 }}</span>
+            <button class="nav-btn" :disabled="currentPage >= (selectedResource?.pages || 10)" @click="currentPage++">下一页 →</button>
+          </div>
+          <div class="ppt-content">
+            <div class="ppt-slide">
+              <div class="slide-header">第 {{ currentPage }} 页</div>
+              <div class="slide-body">
+                <div class="slide-title">《{{ selectedResource?.name }}》</div>
+                <div class="slide-content">
+                  <p>这是第 {{ currentPage }} 页的内容</p>
+                  <p>章节标题：软件工程基础</p>
+                  <p>主要知识点：{{ getSlideContent(currentPage) }}</p>
                 </div>
               </div>
             </div>
           </div>
-          <div class="pdf-preview" v-else-if="selectedResource?.type === 'PDF'">
-            <div class="pdf-placeholder">
-              <div class="pdf-icon">📄</div>
-              <p>PDF文档预览</p>
-              <p class="pdf-hint">完整PDF查看功能需要后端接口支持</p>
-            </div>
+        </div>
+        <div class="pdf-preview" v-else-if="selectedResource?.type === 'PDF'">
+          <div class="pdf-placeholder">
+            <div class="pdf-icon">📄</div>
+            <p>PDF文档预览</p>
+            <p class="pdf-hint">完整PDF查看功能需要后端接口支持</p>
           </div>
         </div>
       </div>
+      <div class="resize-handle" @mousedown="startResize"></div>
     </div>
   </div>
 </template>
@@ -204,6 +203,71 @@ const visibleResources = ref([])
 const selectedResource = ref(null)
 const showResourcePreview = ref(false)
 const currentPage = ref(1)
+const floatWindowStyle = ref({
+  left: '50px',
+  top: '50px',
+  width: '500px',
+  height: '400px'
+})
+
+let isDragging = false
+let isResizing = false
+let dragOffset = { x: 0, y: 0 }
+let resizeStart = { x: 0, y: 0, width: 0, height: 0 }
+
+const startFloatDrag = (e) => {
+  const target = e.target
+  if (target.classList.contains('resize-handle') || target.classList.contains('float-close')) return
+  
+  isDragging = true
+  const rect = document.querySelector('.float-window').getBoundingClientRect()
+  dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  document.addEventListener('mousemove', onFloatDrag)
+  document.addEventListener('mouseup', stopFloatDrag)
+}
+
+const onFloatDrag = (e) => {
+  if (!isDragging) return
+  
+  floatWindowStyle.value.left = `${e.clientX - dragOffset.x}px`
+  floatWindowStyle.value.top = `${e.clientY - dragOffset.y}px`
+}
+
+const stopFloatDrag = () => {
+  isDragging = false
+  document.removeEventListener('mousemove', onFloatDrag)
+  document.removeEventListener('mouseup', stopFloatDrag)
+}
+
+const startResize = (e) => {
+  isResizing = true
+  const windowEl = document.querySelector('.float-window')
+  const rect = windowEl.getBoundingClientRect()
+  resizeStart = {
+    x: e.clientX,
+    y: e.clientY,
+    width: rect.width,
+    height: rect.height
+  }
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+}
+
+const onResize = (e) => {
+  if (!isResizing) return
+  
+  const deltaX = e.clientX - resizeStart.x
+  const deltaY = e.clientY - resizeStart.y
+  
+  floatWindowStyle.value.width = `${Math.max(300, resizeStart.width + deltaX)}px`
+  floatWindowStyle.value.height = `${Math.max(250, resizeStart.height + deltaY)}px`
+}
+
+const stopResize = () => {
+  isResizing = false
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+}
 
 const getSlideContent = (page) => {
   const contents = {
@@ -769,58 +833,78 @@ onUnmounted(async () => {
   color: #6b7280;
 }
 
-.resource-modal-overlay {
+.float-window {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(15, 23, 42, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-}
-
-.resource-modal {
   background: #ffffff;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 85vh;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  z-index: 1000;
+  cursor: move;
+  min-width: 300px;
+  min-height: 250px;
+  max-width: 90vw;
+  max-height: 90vh;
 }
 
-.modal-header {
+.float-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px 16px;
   background: #111827;
   color: #ffffff;
+  cursor: move;
 }
 
-.modal-title {
-  font-size: 15px;
+.float-title {
+  font-size: 14px;
   font-weight: 600;
 }
 
-.modal-close {
-  background: transparent;
+.float-close {
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   color: #ffffff;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  padding: 0 8px;
+  padding: 2px 8px;
   line-height: 1;
+  border-radius: 6px;
+  transition: background 0.2s ease;
 }
 
-.modal-body {
-  padding: 20px;
-  max-height: calc(85vh - 60px);
+.float-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.float-body {
+  padding: 16px;
+  height: calc(100% - 44px);
   overflow-y: auto;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  background: #111827;
+  cursor: se-resize;
+  border-radius: 0 0 16px 0;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  border-radius: 0 0 4px 0;
 }
 
 .ppt-preview {
