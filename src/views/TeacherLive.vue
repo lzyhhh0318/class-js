@@ -78,7 +78,10 @@
                 <div class="resource-name">{{ item.name }}</div>
                 <div class="resource-sub">可观看时间：{{ formatStartAt(item.startAt) }}</div>
               </div>
-              <button class="ghost-btn" @click="openVideoLink(item.videoUrl)">打开</button>
+              <div class="resource-actions">
+                <button class="ghost-btn" @click="openVideoLink(item.videoUrl)">打开</button>
+                <button class="delete-btn" @click="deleteResource(item)">删除</button>
+              </div>
             </div>
             <div class="resource-empty" v-if="resourceItems.length === 0">暂无录播资源</div>
           </div>
@@ -458,6 +461,50 @@ const openVideoLink = (url) => {
   if (!url) return
   window.open(url, '_blank')
 }
+
+const deleteResource = async (item) => {
+  if (!confirm(`确定要删除视频 "${item.name}" 吗？此操作无法撤销。`)) {
+    return
+  }
+
+  try {
+    const ossPath = extractOssPath(item.videoUrl)
+    const response = await fetch('http://localhost:8080/api/video/delete', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ ossPath })
+    })
+
+    if (!response.ok) {
+      throw new Error('删除失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      resourceItems.value = resourceItems.value.filter(res => res.id !== item.id)
+      persistResourceItems()
+      alert('删除成功！')
+    } else {
+      throw new Error(result.message || '删除失败')
+    }
+  } catch (error) {
+    console.error('删除错误:', error)
+    alert('删除失败：' + error.message)
+  }
+}
+
+const extractOssPath = (url) => {
+  if (!url) return ''
+  const baseUrl = `https://code-class-video.oss-cn-${ALIYUN_REGION}.aliyuncs.com/`
+  if (url.startsWith(baseUrl)) {
+    return decodeURIComponent(url.substring(baseUrl.length))
+  }
+  return ''
+}
+
+const ALIYUN_REGION = 'cn-beijing'
 
 const formatStartAt = (value) => {
   if (!value) return '未设置'
@@ -871,6 +918,45 @@ onUnmounted(() => { stopLive() })
 .resource-empty {
   font-size: 12px;
   color: #6b7280;
+}
+
+.resource-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ghost-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+
+.ghost-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.delete-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+  border-color: #f87171;
 }
 
 .media-controls {
