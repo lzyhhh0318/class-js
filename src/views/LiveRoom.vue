@@ -409,27 +409,28 @@ const sendDanmaku = async () => {
   inputText.value = ''
 }
 
-// 拖拽逻辑
-let isDragging = false, dragOffset = { x: 0, y: 0 }
+// 画中画窗口拖拽逻辑
+let isPipDragging = false
+let pipDragOffset = { x: 0, y: 0 }
 const startDrag = (e) => {
   if (!isTeacherScreenOn.value) return 
   const pip = document.getElementById('camera-video')
   const rect = pip.getBoundingClientRect()
   if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return 
-  isDragging = true
-  dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  isPipDragging = true
+  pipDragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
   document.addEventListener('mousemove', onDrag)
   document.addEventListener('mouseup', stopDrag)
 }
 const onDrag = (e) => {
-  if (!isDragging) return
+  if (!isPipDragging) return
   const pip = document.getElementById('camera-video')
   const container = pip.parentElement.getBoundingClientRect()
-  pip.style.left = `${e.clientX - container.left - dragOffset.x}px`
-  pip.style.top = `${e.clientY - container.top - dragOffset.y}px`
+  pip.style.left = `${e.clientX - container.left - pipDragOffset.x}px`
+  pip.style.top = `${e.clientY - container.top - pipDragOffset.y}px`
   pip.style.right = 'auto'; pip.style.bottom = 'auto'
 }
-const stopDrag = () => { isDragging = false; document.removeEventListener('mousemove', onDrag); document.removeEventListener('mouseup', stopDrag); }
+const stopDrag = () => { isPipDragging = false; document.removeEventListener('mousemove', onDrag); document.removeEventListener('mouseup', stopDrag); }
 
 onMounted(() => {
   sessionStorage.setItem('userRole', 'student')
