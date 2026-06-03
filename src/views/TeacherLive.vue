@@ -112,8 +112,8 @@ const courseId = route.query.courseId || 'default'
 const CHANNEL = `course_room_${courseId}`          
 const TOKEN = null
 
-const UPLOAD_ENDPOINT = '/app/oss/upload'
-const DOWNLOAD_BASE_URL = '/app/download/'
+const UPLOAD_ENDPOINT = 'http://localhost:8080/api/video/upload'
+const DOWNLOAD_BASE_URL = 'https://code-class-video.oss-cn-shanghai.aliyuncs.com/'
 const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
 const uploadProgress = ref(0)
@@ -349,7 +349,7 @@ const addResource = async (source) => {
     }
 
     const result = await parseResponse(response)
-    const videoUrl = extractVideoUrl(result, filePath)
+    const videoUrl = extractVideoUrl(result, ossPath)
 
     resourceItems.value.unshift({
       id: `res_${Date.now()}`,
