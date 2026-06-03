@@ -1,7 +1,10 @@
 <template>
   <div class="teacher-live-page">
     <header class="navbar">
-      <div class="logo">🚀 智能软件工程平台 - 👨‍🏫 教师端 (独立房间号: {{ courseId }})</div>
+      <div class="logo">
+        <button class="back-btn" @click="goBack">⬅ 返回主页</button>
+        🚀 智能软件工程平台 - 👨‍🏫 教师端 (独立房间号: {{ courseId }})
+      </div>
       <button class="stop-btn" v-if="isClassStarted" @click="stopLive">结束直播</button>
     </header>
 
@@ -21,7 +24,6 @@
 
           <div class="pre-class-mask" v-if="!isClassStarted">
             <button class="start-btn primary" @click="startClass">🎬 开始上课</button>
-            <button class="back-btn" @click="goBack">🏠 返回主页</button>
           </div>
         </div>
 
@@ -736,22 +738,14 @@ onUnmounted(() => { stopLive() })
 }
 
 .back-btn {
-  padding: 12px 32px;
-  font-size: 16px;
-  background: rgba(255, 255, 255, 0.2);
+  background: #111827;
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: none;
+  padding: 6px 14px;
   border-radius: 999px;
   cursor: pointer;
-  font-weight: 500;
-  margin-top: 16px;
-  backdrop-filter: blur(4px);
-  transition: all 0.3s ease;
-}
-
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+  margin-right: 14px;
+  font-weight: 600;
 }
 
 .control-panel {
