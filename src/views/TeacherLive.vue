@@ -47,6 +47,12 @@
           <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">{{ showFloatingDanmaku ? '🚫 关飘屏' : '📢 开飘屏' }}</button>
         </div>
 
+        <div class="upload-panel">
+          <button class="upload-toggle-btn" @click="showResourcePanel = !showResourcePanel">
+            📼 {{ showResourcePanel ? '收起录播管理' : '录播管理' }}
+          </button>
+        </div>
+
         <div class="resource-panel" v-if="showResourcePanel">
           <div class="resource-header">📼 录播与资料管理</div>
           <div class="resource-form">
@@ -692,6 +698,29 @@ onUnmounted(() => { stopLive() })
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
   align-items: center;
   gap: 14px;
+}
+
+.upload-panel {
+  margin-top: 16px;
+}
+
+.upload-toggle-btn {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #111827;
+  font-weight: 600;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+.upload-toggle-btn:hover {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
 }
 
 .media-actions {
