@@ -118,6 +118,44 @@
     <div class="danmaku-canvas" v-if="showFloatingDanmaku">
       <div class="fly-item" v-for="dm in floatingDanmakus" :key="dm.id" :style="{top: dm.top + 'px'}">{{ dm.text }}</div>
     </div>
+
+    <div class="resource-modal-overlay" v-if="showResourcePreview" @click.self="closeResourcePreview">
+      <div class="resource-modal">
+        <div class="modal-header">
+          <span class="modal-title">{{ selectedResource?.name }}</span>
+          <button class="modal-close" @click="closeResourcePreview">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="ppt-preview" v-if="selectedResource?.type === 'PPT'">
+            <div class="ppt-toolbar">
+              <button class="nav-btn" :disabled="currentPage <= 1" @click="currentPage--">← 上一页</button>
+              <span class="page-indicator">{{ currentPage }} / {{ selectedResource?.pages || 10 }}</span>
+              <button class="nav-btn" :disabled="currentPage >= (selectedResource?.pages || 10)" @click="currentPage++">下一页 →</button>
+            </div>
+            <div class="ppt-content">
+              <div class="ppt-slide">
+                <div class="slide-header">第 {{ currentPage }} 页</div>
+                <div class="slide-body">
+                  <div class="slide-title">《{{ selectedResource?.name }}》</div>
+                  <div class="slide-content">
+                    <p>这是第 {{ currentPage }} 页的内容</p>
+                    <p>章节标题：软件工程基础</p>
+                    <p>主要知识点：{{ getSlideContent(currentPage) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pdf-preview" v-else-if="selectedResource?.type === 'PDF'">
+            <div class="pdf-placeholder">
+              <div class="pdf-icon">📄</div>
+              <p>PDF文档预览</p>
+              <p class="pdf-hint">完整PDF查看功能需要后端接口支持</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -159,10 +197,31 @@ const boardMessages = ref([
 const resourceItems = ref([
   { id: 'ppt-01', name: '第1讲 课程导论', type: 'PPT' },
   { id: 'pdf-02', name: '第2讲 需求分析', type: 'PDF' },
-  { id: 'ppt-03', name: '第3讲 架构设计', type: 'PPT' }
+  { id: 'ppt-03', name: '第3讲 架构设计', type: 'PPT' },
+  { id: 'ppt-demo', name: 'lcs4.pptx', type: 'PPT', demo: true, pages: 12 }
 ])
 const visibleResources = ref([])
 const selectedResource = ref(null)
+const showResourcePreview = ref(false)
+const currentPage = ref(1)
+
+const getSlideContent = (page) => {
+  const contents = {
+    1: '课程介绍与教学目标',
+    2: '软件工程概述与发展历程',
+    3: '软件开发生命周期模型',
+    4: '需求分析与需求工程',
+    5: '系统设计与架构模式',
+    6: '面向对象分析与设计',
+    7: '数据库设计与数据建模',
+    8: '软件测试与质量保证',
+    9: '软件维护与演进',
+    10: '项目管理与团队协作',
+    11: '敏捷开发方法与实践',
+    12: '课程总结与展望'
+  }
+  return contents[page] || `第 ${page} 页内容`
+}
 
 const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
@@ -189,6 +248,13 @@ const postBoardMessage = () => {
 const openResourceItem = (item) => {
   if (!item.available) return
   selectedResource.value = item
+  if (item.type === 'PPT' || item.type === 'PDF') {
+    showResourcePreview.value = true
+  }
+}
+
+const closeResourcePreview = () => {
+  showResourcePreview.value = false
 }
 
 const showFly = (text) => {
@@ -701,6 +767,168 @@ onUnmounted(async () => {
 .panel-hint {
   font-size: 11px;
   color: #6b7280;
+}
+
+.resource-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.resource-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 85vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px rgba(15, 23, 42, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #111827;
+  color: #ffffff;
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 20px;
+  max-height: calc(85vh - 60px);
+  overflow-y: auto;
+}
+
+.ppt-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ppt-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.nav-btn {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: #374151;
+}
+
+.nav-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.page-indicator {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  min-width: 80px;
+  text-align: center;
+}
+
+.ppt-content {
+  background: #f9fafb;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.ppt-slide {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.slide-header {
+  background: linear-gradient(135deg, #111827 0%, #374151 100%);
+  color: #ffffff;
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slide-body {
+  padding: 24px;
+}
+
+.slide-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.slide-content {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.8;
+}
+
+.slide-content p {
+  margin: 8px 0;
+}
+
+.pdf-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.pdf-placeholder {
+  text-align: center;
+}
+
+.pdf-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.pdf-hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 8px;
 }
 
 @media (max-width: 1080px) {
