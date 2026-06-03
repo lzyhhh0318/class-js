@@ -1,8 +1,8 @@
 const OSS = require('ali-oss');
 
 const ALIYUN_CONFIG = {
-  region: 'oss-cn-shanghai',
-  endpoint: 'https://oss-cn-shanghai.aliyuncs.com',
+  region: 'cn-shanghai',
+  endpoint: 'https://code-class-video.oss-cn-shanghai.aliyuncs.com',
   accessKeyId: process.env.ALIYUN_ACCESS_KEY_ID,
   accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
   bucket: 'code-class-video',
