@@ -220,23 +220,24 @@ const startFloatDrag = (e) => {
   if (target.classList.contains('resize-handle') || target.classList.contains('float-close')) return
   
   isDragging = true
-  const rect = document.querySelector('.float-window').getBoundingClientRect()
+  const windowEl = document.querySelector('.float-window')
+  const rect = windowEl.getBoundingClientRect()
   dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-  document.addEventListener('mousemove', onFloatDrag)
-  document.addEventListener('mouseup', stopFloatDrag)
-}
-
-const onFloatDrag = (e) => {
-  if (!isDragging) return
   
-  floatWindowStyle.value.left = `${e.clientX - dragOffset.x}px`
-  floatWindowStyle.value.top = `${e.clientY - dragOffset.y}px`
-}
-
-const stopFloatDrag = () => {
-  isDragging = false
-  document.removeEventListener('mousemove', onFloatDrag)
-  document.removeEventListener('mouseup', stopFloatDrag)
+  const onMouseMove = (e) => {
+    if (!isDragging) return
+    floatWindowStyle.value.left = `${e.clientX - dragOffset.x}px`
+    floatWindowStyle.value.top = `${e.clientY - dragOffset.y}px`
+  }
+  
+  const onMouseUp = () => {
+    isDragging = false
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+  
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 }
 
 const startResize = (e) => {

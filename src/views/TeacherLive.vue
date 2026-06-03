@@ -112,8 +112,8 @@ const courseId = route.query.courseId || 'default'
 const CHANNEL = `course_room_${courseId}`          
 const TOKEN = null
 
-const UPLOAD_ENDPOINT = 'http://10.24.50.32:8080/api/oss/upload'
-const DOWNLOAD_BASE_URL = 'http://10.24.50.32:8080/api/download/'
+const UPLOAD_ENDPOINT = 'http://192.168.245.236:8080/app/oss/upload'
+const DOWNLOAD_BASE_URL = 'http://192.168.245.236:8080/app/download/'
 const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
 const uploadProgress = ref(0)
@@ -323,14 +323,15 @@ const addResource = async (source) => {
   try {
     const extension = getFileExtension(resourceFile.value.name)
     const baseName = normalizeTitle(resourceTitle.value.trim())
-    const filePath = `${courseId}/${Date.now()}_${baseName}${extension}`
+    const fileId = Date.now()
+    const ossPath = `protected/${courseId}/recordings/${fileId}/${fileId}${extension}`
     
     const formData = new FormData()
     formData.append('file', resourceFile.value)
     formData.append('course_id', String(courseId))
     formData.append('start_at', new Date(resourceStartAt.value).toISOString())
     formData.append('title', resourceTitle.value.trim())
-    formData.append('path', filePath)
+    formData.append('path', ossPath)
 
     const response = await fetch(UPLOAD_ENDPOINT, {
       method: 'POST',
@@ -417,17 +418,20 @@ const extractVideoUrl = (result, fallbackPath) => {
   }
 
   const urlFields = [
-    'videoUrl', 'url', 'downloadUrl', 'fileUrl',
-    'data.videoUrl', 'data.url', 'data.downloadUrl', 'data.fileUrl',
-    'result.videoUrl', 'result.url', 'result.downloadUrl', 'result.fileUrl',
-    'data.result.videoUrl', 'data.result.url'
+    'videoUrl', 'url', 'downloadUrl', 'fileUrl', 'ossPath',
+    'data.videoUrl', 'data.url', 'data.downloadUrl', 'data.fileUrl', 'data.ossPath',
+    'result.videoUrl', 'result.url', 'result.downloadUrl', 'result.fileUrl', 'result.ossPath',
+    'data.result.videoUrl', 'data.result.url', 'data.result.ossPath'
   ]
 
   for (const field of urlFields) {
     const value = getNestedValue(result, field)
     if (value && typeof value === 'string' && value.length > 0) {
-      if (value.startsWith('http') || value.startsWith('/')) {
+      if (value.startsWith('http')) {
         return value
+      }
+      if (value.startsWith('/')) {
+        return `${DOWNLOAD_BASE_URL}${encodeURIComponent(value.slice(1))}`
       }
       return `${DOWNLOAD_BASE_URL}${encodeURIComponent(value)}`
     }
