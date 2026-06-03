@@ -21,6 +21,7 @@
 
           <div class="pre-class-mask" v-if="!isClassStarted">
             <button class="start-btn primary" @click="startClass">🎬 开始上课</button>
+            <button class="back-btn" @click="goBack">🏠 返回主页</button>
           </div>
         </div>
 
@@ -116,7 +117,7 @@ const CHANNEL = `course_room_${courseId}`
 const TOKEN = null
 
 const UPLOAD_ENDPOINT = 'http://localhost:8080/api/video/upload'
-const DOWNLOAD_BASE_URL = 'https://code-class-video.oss-cn-shanghai.aliyuncs.com/'
+const STREAM_BASE_URL = 'http://localhost:8080/api/video/stream'
 const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
 const uploadProgress = ref(0)
@@ -275,6 +276,10 @@ const stopLive = async () => {
   router.push('/dashboard')
 }
 
+const goBack = () => {
+  router.push('/dashboard')
+}
+
 const handleResourceFileChange = (event) => {
   const file = event.target.files && event.target.files[0]
   resourceFile.value = file || null
@@ -417,38 +422,20 @@ const parseResponse = async (response) => {
 
 const extractVideoUrl = (result, fallbackPath) => {
   if (!result) {
-    return `${DOWNLOAD_BASE_URL}${encodeURIComponent(fallbackPath)}`
-  }
-
-  const urlFields = [
-    'videoUrl', 'url', 'downloadUrl', 'fileUrl', 'ossPath',
-    'data.videoUrl', 'data.url', 'data.downloadUrl', 'data.fileUrl', 'data.ossPath',
-    'result.videoUrl', 'result.url', 'result.downloadUrl', 'result.fileUrl', 'result.ossPath',
-    'data.result.videoUrl', 'data.result.url', 'data.result.ossPath'
-  ]
-
-  for (const field of urlFields) {
-    const value = getNestedValue(result, field)
-    if (value && typeof value === 'string' && value.length > 0) {
-      if (value.startsWith('http')) {
-        return value
-      }
-      if (value.startsWith('/')) {
-        return `${DOWNLOAD_BASE_URL}${encodeURIComponent(value.slice(1))}`
-      }
-      return `${DOWNLOAD_BASE_URL}${encodeURIComponent(value)}`
-    }
+    const fileName = fallbackPath.split('/').pop() || 'unknown.mp4'
+    return `${STREAM_BASE_URL}/${courseId}/${encodeURIComponent(fileName)}`
   }
 
   const fileNameFields = ['fileName', 'name', 'data.fileName', 'data.name', 'result.fileName', 'result.name']
   for (const field of fileNameFields) {
     const fileName = getNestedValue(result, field)
     if (fileName && typeof fileName === 'string') {
-      return `${DOWNLOAD_BASE_URL}${encodeURIComponent(fileName)}`
+      return `${STREAM_BASE_URL}/${courseId}/${encodeURIComponent(fileName)}`
     }
   }
 
-  return `${DOWNLOAD_BASE_URL}${encodeURIComponent(fallbackPath)}`
+  const fileName = fallbackPath.split('/').pop() || 'unknown.mp4'
+  return `${STREAM_BASE_URL}/${courseId}/${encodeURIComponent(fileName)}`
 }
 
 const getNestedValue = (obj, path) => {
@@ -497,10 +484,19 @@ const deleteResource = async (item) => {
 
 const extractOssPath = (url) => {
   if (!url) return ''
-  const baseUrl = `https://code-class-video.oss-cn-${ALIYUN_REGION}.aliyuncs.com/`
-  if (url.startsWith(baseUrl)) {
-    return decodeURIComponent(url.substring(baseUrl.length))
+  
+  const streamPattern = new RegExp(`${STREAM_BASE_URL.replace(/\//g, '\\/')}\\/${courseId}\\/(.+)$`)
+  const match = url.match(streamPattern)
+  if (match) {
+    const fileName = decodeURIComponent(match[1])
+    return `courses/${courseId}/${fileName}`
   }
+  
+  const ossBaseUrl = `https://code-class-video.oss-cn-${ALIYUN_REGION}.aliyuncs.com/`
+  if (url.startsWith(ossBaseUrl)) {
+    return decodeURIComponent(url.substring(ossBaseUrl.length))
+  }
+  
   return ''
 }
 
@@ -737,6 +733,25 @@ onUnmounted(() => { stopLive() })
   cursor: pointer;
   font-weight: 600;
   box-shadow: 0 16px 30px rgba(17, 24, 39, 0.28);
+}
+
+.back-btn {
+  padding: 12px 32px;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 16px;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .control-panel {
