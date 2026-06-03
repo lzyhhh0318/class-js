@@ -112,8 +112,8 @@ const courseId = route.query.courseId || 'default'
 const CHANNEL = `course_room_${courseId}`          
 const TOKEN = null
 
-const UPLOAD_ENDPOINT = 'http://192.168.245.236:8080/app/oss/upload'
-const DOWNLOAD_BASE_URL = 'http://192.168.245.236:8080/app/download/'
+const UPLOAD_ENDPOINT = '/app/oss/upload'
+const DOWNLOAD_BASE_URL = '/app/download/'
 const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
 const uploadProgress = ref(0)
