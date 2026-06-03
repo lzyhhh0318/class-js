@@ -126,7 +126,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import AgoraRTM from 'agora-rtm-sdk'
-import { supabase } from '../lib/supabaseClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -164,6 +163,8 @@ const resourceItems = ref([
 ])
 const visibleResources = ref([])
 const selectedResource = ref(null)
+
+const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
 let rtcClient = null, rtmClient = null, rtmChannel = null
 
@@ -203,29 +204,19 @@ const getDisplayNameFromUrl = (url) => {
 }
 
 const fetchCourseRecords = async () => {
-  const { data, error } = await supabase
-    .from('course_records')
-    .select('id, course_id, video_url, created_at, start_at')
-    .eq('course_id', String(courseId))
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error(error)
-    visibleResources.value = resourceItems.value.map(item => ({ ...item, available: true, url: '' }))
-    return
-  }
-
+  const raw = localStorage.getItem(RESOURCE_STORAGE_KEY)
+  const records = raw ? JSON.parse(raw) : []
   const now = Date.now()
-  const recordings = (data || []).map(item => {
-    const startAt = item.start_at || item.created_at
+  const recordings = records.map(item => {
+    const startAt = item.startAt || item.createdAt
     const available = new Date(startAt).getTime() <= now
     return {
       id: item.id,
-      name: getDisplayNameFromUrl(item.video_url),
+      name: item.name || getDisplayNameFromUrl(item.videoUrl),
       type: 'VIDEO',
       available,
       startAt,
-      url: item.video_url
+      url: item.videoUrl
     }
   })
 
@@ -317,11 +308,13 @@ onMounted(() => {
   }
   initStudentLive()
   fetchCourseRecords()
+  window.addEventListener('storage', fetchCourseRecords)
 })
 onUnmounted(async () => {
   if (rtcClient) await rtcClient.leave()
   if (rtmChannel) await rtmChannel.leave()
   if (rtmClient) await rtmClient.logout()
+  window.removeEventListener('storage', fetchCourseRecords)
 })
 </script>
 

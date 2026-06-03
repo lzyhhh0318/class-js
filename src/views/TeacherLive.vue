@@ -33,13 +33,21 @@
               {{ isScreenOn ? '💻 停共享' : '💻 享屏幕' }}
             </button>
           </div>
+          <div class="media-actions">
+            <button class="icon-btn" :class="{ active: isRecording }" :disabled="isUploading" @click="toggleRecording" title="录制片段">
+              {{ isRecording ? '⏹' : '⏺' }}
+            </button>
+            <button class="icon-btn" @click="showResourcePanel = !showResourcePanel" title="录播">
+              📼
+            </button>
+          </div>
           <button class="toggle-btn dm-toggle-btn" @click="showDanmaku = !showDanmaku">
             {{ showDanmaku ? '🔕 隐藏侧边弹幕' : '💬 展开侧边弹幕' }}
           </button>
           <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">{{ showFloatingDanmaku ? '🚫 关飘屏' : '📢 开飘屏' }}</button>
         </div>
 
-        <div class="resource-panel">
+        <div class="resource-panel" v-if="showResourcePanel">
           <div class="resource-header">📼 录播与资料管理</div>
           <div class="resource-form">
             <input v-model="resourceTitle" type="text" placeholder="资源名称（如：第4讲 录播）" />
@@ -49,7 +57,14 @@
               <button class="toggle-btn" @click="addResource('prerecord')" :disabled="isUploading">上传预录视频</button>
               <button class="toggle-btn" @click="addResource('recording')" :disabled="isUploading">保存直播录像</button>
             </div>
-            <div class="resource-hint">说明：视频会上传到 Supabase Storage，并写入 course_records 表。</div>
+            <div class="upload-progress" v-if="isUploading">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{width: uploadProgress + '%'}"></div>
+              </div>
+              <div class="progress-text">上传中: {{ uploadProgress }}%</div>
+            </div>
+            <div class="upload-error" v-if="uploadError">{{ uploadError }}</div>
+            <div class="resource-hint">说明：视频会上传到后端存储服务，并同步本地列表。</div>
           </div>
           <div class="resource-list">
             <div class="resource-item" v-for="item in resourceItems" :key="item.id">
@@ -81,7 +96,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import AgoraRTM from 'agora-rtm-sdk'
-import { supabase } from '../lib/supabaseClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,6 +105,13 @@ const APP_ID = 'ef5c5abed935411c8366d07d8af1d3ef'
 const courseId = route.query.courseId || 'default'
 const CHANNEL = `course_room_${courseId}`          
 const TOKEN = null
+
+const UPLOAD_ENDPOINT = 'http://10.24.50.32:8080/api/oss/upload'
+const DOWNLOAD_BASE_URL = 'http://10.24.50.32:8080/api/download/'
+const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
+
+const uploadProgress = ref(0)
+const uploadError = ref('')
 
 const CAMERA_UID = Math.floor(Math.random() * 10000)
 const SCREEN_UID = CAMERA_UID + 10000
@@ -102,9 +123,13 @@ const showDanmaku = ref(true) // 弹幕面板开关
 const showFloatingDanmaku = ref(true)
 const danmakuList = ref([])
 const floatingDanmakus = ref([])
+const showResourcePanel = ref(false)
+const isRecording = ref(false)
 
 let rtcClient = null, screenClient = null, rtmClient = null, rtmChannel = null
 let localAudioTrack = null, localVideoTrack = null, screenVideoTrack = null
+let mediaRecorder = null
+let recordedChunks = []
 
 const resourceTitle = ref('')
 const resourceStartAt = ref('')
@@ -262,87 +287,161 @@ const getDisplayNameFromUrl = (url) => {
   return decodeURIComponent(fileName).replace(/^[0-9]+_/, '')
 }
 
-const fetchCourseRecords = async () => {
-  const { data, error } = await supabase
-    .from('course_records')
-    .select('id, course_id, video_url, created_at, start_at')
-    .eq('course_id', String(courseId))
-    .order('created_at', { ascending: false })
+const loadResourceItems = () => {
+  const raw = localStorage.getItem(RESOURCE_STORAGE_KEY)
+  resourceItems.value = raw ? JSON.parse(raw) : []
+}
 
-  if (error) {
-    console.error(error)
-    return
-  }
-
-  resourceItems.value = (data || []).map(item => ({
-    id: item.id,
-    name: getDisplayNameFromUrl(item.video_url),
-    videoUrl: item.video_url,
-    startAt: item.start_at || item.created_at
-  }))
+const persistResourceItems = () => {
+  localStorage.setItem(RESOURCE_STORAGE_KEY, JSON.stringify(resourceItems.value))
 }
 
 const addResource = async (source) => {
-  if (!resourceTitle.value.trim()) return
-  if (!resourceStartAt.value) return
-  if (!resourceFile.value) return
+  if (!resourceTitle.value.trim()) {
+    uploadError.value = '请输入资源名称'
+    return
+  }
+  if (!resourceStartAt.value) {
+    uploadError.value = '请选择可观看时间'
+    return
+  }
+  if (!resourceFile.value) {
+    uploadError.value = '请选择要上传的文件'
+    return
+  }
 
   isUploading.value = true
+  uploadProgress.value = 0
+  uploadError.value = ''
 
   try {
     const extension = getFileExtension(resourceFile.value.name)
     const baseName = normalizeTitle(resourceTitle.value.trim())
     const filePath = `${courseId}/${Date.now()}_${baseName}${extension}`
+    
+    const formData = new FormData()
+    formData.append('file', resourceFile.value)
+    formData.append('course_id', String(courseId))
+    formData.append('start_at', new Date(resourceStartAt.value).toISOString())
+    formData.append('title', resourceTitle.value.trim())
+    formData.append('path', filePath)
 
-    const { error: uploadError } = await supabase
-      .storage
-      .from('videos')
-      .upload(filePath, resourceFile.value, { contentType: resourceFile.value.type })
+    const response = await fetch(UPLOAD_ENDPOINT, {
+      method: 'POST',
+      body: formData,
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total > 0) {
+          uploadProgress.value = Math.round((progressEvent.loaded / progressEvent.total) * 100)
+        }
+      }
+    })
 
-    if (uploadError) throw uploadError
-
-    const { data: publicData } = supabase
-      .storage
-      .from('videos')
-      .getPublicUrl(filePath)
-
-    const startAt = new Date(resourceStartAt.value).toISOString()
-    const payload = {
-      course_id: String(courseId),
-      video_url: publicData.publicUrl,
-      start_at: startAt
+    if (!response.ok) {
+      const errorText = await getErrorResponse(response)
+      throw new Error(`上传失败 [${response.status}]: ${errorText}`)
     }
 
-    const { error: insertError } = await supabase
-      .from('course_records')
-      .insert(payload)
+    const result = await parseResponse(response)
+    const videoUrl = extractVideoUrl(result, filePath)
 
-    if (insertError && insertError.message && insertError.message.includes('start_at')) {
-      const { error: retryError } = await supabase
-        .from('course_records')
-        .insert({
-          course_id: String(courseId),
-          video_url: publicData.publicUrl
-        })
-
-      if (retryError) throw retryError
-    } else if (insertError) {
-      throw insertError
-    }
+    resourceItems.value.unshift({
+      id: `res_${Date.now()}`,
+      name: resourceTitle.value.trim(),
+      videoUrl,
+      startAt: new Date(resourceStartAt.value).toISOString(),
+      createdAt: new Date().toISOString(),
+      source
+    })
+    persistResourceItems()
 
     resourceTitle.value = ''
     resourceStartAt.value = ''
     resourceFile.value = null
+    uploadProgress.value = 0
     if (resourceFileInput.value) {
       resourceFileInput.value.value = ''
     }
-    await fetchCourseRecords()
+    
+    alert('上传成功！')
   } catch (error) {
-    console.error(error)
-    alert('上传失败，请检查 Supabase 配置或表结构。')
+    console.error('上传错误:', error)
+    uploadError.value = error.message || '上传失败，请检查上传接口或网络'
+    alert(uploadError.value)
   } finally {
     isUploading.value = false
+    uploadProgress.value = 0
   }
+}
+
+const getErrorResponse = async (response) => {
+  try {
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const data = await response.json()
+      return data.message || data.error || '未知错误'
+    }
+    return await response.text()
+  } catch {
+    return '无法获取错误详情'
+  }
+}
+
+const parseResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || ''
+  
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json()
+    } catch {
+      return null
+    }
+  }
+  
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { raw: text }
+  }
+}
+
+const extractVideoUrl = (result, fallbackPath) => {
+  if (!result) {
+    return `${DOWNLOAD_BASE_URL}${encodeURIComponent(fallbackPath)}`
+  }
+
+  const urlFields = [
+    'videoUrl', 'url', 'downloadUrl', 'fileUrl',
+    'data.videoUrl', 'data.url', 'data.downloadUrl', 'data.fileUrl',
+    'result.videoUrl', 'result.url', 'result.downloadUrl', 'result.fileUrl',
+    'data.result.videoUrl', 'data.result.url'
+  ]
+
+  for (const field of urlFields) {
+    const value = getNestedValue(result, field)
+    if (value && typeof value === 'string' && value.length > 0) {
+      if (value.startsWith('http') || value.startsWith('/')) {
+        return value
+      }
+      return `${DOWNLOAD_BASE_URL}${encodeURIComponent(value)}`
+    }
+  }
+
+  const fileNameFields = ['fileName', 'name', 'data.fileName', 'data.name', 'result.fileName', 'result.name']
+  for (const field of fileNameFields) {
+    const fileName = getNestedValue(result, field)
+    if (fileName && typeof fileName === 'string') {
+      return `${DOWNLOAD_BASE_URL}${encodeURIComponent(fileName)}`
+    }
+  }
+
+  return `${DOWNLOAD_BASE_URL}${encodeURIComponent(fallbackPath)}`
+}
+
+const getNestedValue = (obj, path) => {
+  return path.split('.').reduce((current, key) => {
+    return current && typeof current === 'object' ? current[key] : undefined
+  }, obj)
 }
 
 const openVideoLink = (url) => {
@@ -356,12 +455,73 @@ const formatStartAt = (value) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+const getRecordFileName = () => {
+  const now = new Date()
+  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
+  return `live_${courseId}_${stamp}.webm`
+}
+
+const toggleRecording = async () => {
+  if (isRecording.value) {
+    if (mediaRecorder) {
+      mediaRecorder.stop()
+    }
+    return
+  }
+
+  if (!isClassStarted.value) {
+    alert('请先开始上课后再录制。')
+    return
+  }
+
+  const tracks = []
+  if (localAudioTrack) tracks.push(localAudioTrack.getMediaStreamTrack())
+  if (isScreenOn.value && screenVideoTrack) {
+    tracks.push(screenVideoTrack.getMediaStreamTrack())
+  } else if (localVideoTrack) {
+    tracks.push(localVideoTrack.getMediaStreamTrack())
+  }
+
+  if (tracks.length === 0) {
+    alert('当前没有可录制的视频流。')
+    return
+  }
+
+  const stream = new MediaStream(tracks)
+  const options = {}
+  if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+    options.mimeType = 'video/webm;codecs=vp9,opus'
+  } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+    options.mimeType = 'video/webm;codecs=vp8,opus'
+  }
+
+  recordedChunks = []
+  mediaRecorder = new MediaRecorder(stream, options)
+  mediaRecorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) {
+      recordedChunks.push(event.data)
+    }
+  }
+  mediaRecorder.onstop = async () => {
+    const blob = new Blob(recordedChunks, { type: options.mimeType || 'video/webm' })
+    const file = new File([blob], getRecordFileName(), { type: blob.type })
+    resourceFile.value = file
+    resourceTitle.value = `直播录制_${new Date().toLocaleString('zh-CN')}`
+    resourceStartAt.value = new Date().toISOString().slice(0, 16)
+    showResourcePanel.value = true
+    await addResource('recording')
+    isRecording.value = false
+  }
+  mediaRecorder.start()
+  isRecording.value = true
+}
+
 onMounted(() => {
   sessionStorage.setItem('userRole', 'teacher')
   if (!sessionStorage.getItem('displayName')) {
     sessionStorage.setItem('displayName', '教师姓名')
   }
-  fetchCourseRecords()
+  loadResourceItems()
 })
 
 onUnmounted(() => { stopLive() })
@@ -530,6 +690,41 @@ onUnmounted(() => { stopLive() })
   border-radius: 16px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+  align-items: center;
+  gap: 14px;
+}
+
+.media-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.icon-btn.active {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(239, 68, 68, 0.25);
+}
+
+.icon-btn:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .resource-panel {
@@ -568,6 +763,40 @@ onUnmounted(() => { stopLive() })
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.upload-progress {
+  margin-top: 8px;
+}
+
+.progress-bar {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #111827 0%, #374151 100%);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.upload-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fef2f2;
+  border-radius: 8px;
 }
 
 .resource-hint {
