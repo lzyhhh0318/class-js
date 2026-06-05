@@ -28,6 +28,11 @@
           <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">
              {{ showFloatingDanmaku ? '🚫 关弹幕' : '📢 开弹幕' }}
           </button>
+          <select v-model="danmakuDensity" class="danmaku-density-select">
+            <option value="high">大量</option>
+            <option value="normal">少量</option>
+            <option value="low">微量</option>
+          </select>
           <input type="text" v-model="inputText" @keyup.enter="sendDanmaku" placeholder="发个弹幕互动..." class="mock-input" />
           <button class="mock-btn primary" @click="sendDanmaku">发送弹幕</button>
         </div>
@@ -179,6 +184,22 @@ const inputText = ref('')
 const activeDanmakus = ref([])
 const showFloatingDanmaku = ref(true)
 const floatingDanmakus = ref([])
+
+const danmakuDensity = ref('normal')
+const danmakuLimit = {
+  high: 50,
+  normal: 20,
+  low: 5
+}
+const danmakuPositions = {
+  high: { minTop: 20, maxTop: 400 },
+  normal: { minTop: 20, maxTop: 150 },
+  low: { minTop: 20, maxTop: 40 }
+}
+const userDanmakuTimestamps = ref({})
+const DANMAKU_LIMIT_PER_MINUTE = 10
+
+const currentPlayingVideo = ref(null)
 const panelStates = ref({
   ai: true,
   board: false,
@@ -324,8 +345,31 @@ const closeResourcePreview = () => {
 
 const showFly = (text) => {
   const id = Date.now()
-  floatingDanmakus.value.push({ id, text, top: Math.random() * 400 + 20 })
-  setTimeout(() => { floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) }, 5000)
+  const position = danmakuPositions[danmakuDensity.value]
+  const top = Math.random() * (position.maxTop - position.minTop) + position.minTop
+  
+  floatingDanmakus.value.push({ id, text, top })
+  
+  if (floatingDanmakus.value.length > danmakuLimit[danmakuDensity.value]) {
+    floatingDanmakus.value.shift()
+  }
+  
+  setTimeout(() => { 
+    floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) 
+  }, 5000)
+}
+
+const canSendDanmaku = (userId) => {
+  const now = Date.now()
+  if (!userDanmakuTimestamps.value[userId]) {
+    userDanmakuTimestamps.value[userId] = []
+  }
+  
+  userDanmakuTimestamps.value[userId] = userDanmakuTimestamps.value[userId].filter(
+    ts => now - ts < 60000
+  )
+  
+  return userDanmakuTimestamps.value[userId].length < DANMAKU_LIMIT_PER_MINUTE
 }
 
 const getDisplayNameFromUrl = (url) => {
@@ -403,12 +447,68 @@ const initStudentLive = async () => {
 
 const sendDanmaku = async () => {
   if (!inputText.value.trim()) return
+  
+  const userId = String(UID)
+  
+  if (!canSendDanmaku(userId)) {
+    alert('发送频率过高，请稍后再试')
+    return
+  }
+  
+  if (floatingDanmakus.value.length >= danmakuLimit[danmakuDensity.value]) {
+    return
+  }
+  
   const text = inputText.value
+  userDanmakuTimestamps.value[userId].push(Date.now())
+  
   await rtmChannel.sendMessage({ text: text })
   activeDanmakus.value.push("我: " + text)
   showFly("我: " + text)
   inputText.value = ''
 }
+
+const checkAndPlayScheduledVideo = async () => {
+  if (isTeacherScreenOn.value || isTeacherCameraOn.value) {
+    return
+  }
+  
+  const now = Date.now()
+  
+  const scheduledVideo = visibleResources.value.find(item => {
+    if (item.type !== 'VIDEO') return false
+    const startTime = new Date(item.startAt).getTime()
+    return Math.abs(startTime - now) < 5 * 60 * 1000
+  })
+  
+  if (scheduledVideo && !currentPlayingVideo.value) {
+    currentPlayingVideo.value = scheduledVideo
+    playVideoInLive(scheduledVideo)
+  }
+}
+
+const playVideoInLive = (video) => {
+  const videoElement = document.createElement('video')
+  videoElement.src = video.url
+  videoElement.controls = true
+  videoElement.autoplay = true
+  videoElement.style.width = '100%'
+  videoElement.style.height = '100%'
+  videoElement.style.position = 'absolute'
+  videoElement.style.top = '0'
+  videoElement.style.left = '0'
+  videoElement.style.zIndex = '10'
+  
+  const videoContainer = document.querySelector('.video-container')
+  videoContainer.appendChild(videoElement)
+  
+  videoElement.onended = () => {
+    currentPlayingVideo.value = null
+    videoElement.remove()
+  }
+}
+
+let videoCheckInterval = null
 
 // 画中画窗口拖拽逻辑
 let isPipDragging = false
@@ -441,12 +541,16 @@ onMounted(() => {
   initStudentLive()
   fetchCourseRecords()
   window.addEventListener('storage', fetchCourseRecords)
+  
+  checkAndPlayScheduledVideo()
+  videoCheckInterval = setInterval(checkAndPlayScheduledVideo, 60000)
 })
 onUnmounted(async () => {
   if (rtcClient) await rtcClient.leave()
   if (rtmChannel) await rtmChannel.leave()
   if (rtmClient) await rtmClient.logout()
   window.removeEventListener('storage', fetchCourseRecords)
+  if (videoCheckInterval) clearInterval(videoCheckInterval)
 })
 </script>
 
@@ -617,6 +721,17 @@ onUnmounted(async () => {
   outline: none;
   background: #ffffff;
   color: #111827;
+}
+
+.danmaku-density-select {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
 }
 
 .mock-btn.primary {
