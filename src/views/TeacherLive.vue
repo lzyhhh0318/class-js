@@ -1,14 +1,41 @@
 <template>
   <div class="teacher-live-page">
-    <header class="navbar">
-      <div class="logo">
-        <button class="back-btn" @click="goBack">⬅ 返回主页</button>
-        🚀 智能软件工程平台 - 👨‍🏫 教师端 (独立房间号: {{ courseId }})
+    <aside class="side-nav" :class="{ collapsed: isSideNavCollapsed }">
+      <div class="brand">
+        <div class="brand-mark">SE大师</div>
+        <div class="brand-sub">智能软件工程平台</div>
       </div>
-      <button class="stop-btn" v-if="isClassStarted" @click="stopLive">结束直播</button>
-    </header>
+      <nav class="nav-list">
+        <button class="nav-item active">
+          <span class="nav-icon">🎬</span>
+          <span class="nav-text">直播授课</span>
+        </button>
+        <button class="nav-item" @click="goBack">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-text">返回主页</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">📚</span>
+          <span class="nav-text">课程大纲</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">📝</span>
+          <span class="nav-text">作业管理</span>
+        </button>
+      </nav>
+      <div class="course-info">
+        <div class="course-label">当前课程</div>
+        <div class="course-name">课程 {{ courseId }}</div>
+        <div class="live-status" :class="isClassStarted ? 'live' : 'waiting'">
+          {{ isClassStarted ? '🟢 直播中' : '⏳ 未开始' }}
+        </div>
+      </div>
+      <button class="collapse-btn" @click="isSideNavCollapsed = !isSideNavCollapsed">
+        {{ isSideNavCollapsed ? '▶' : '◀' }}
+      </button>
+    </aside>
 
-    <main class="main-content">
+    <div class="main-content">
       <section class="video-section">
         <div class="video-container" :class="{'has-screen': isScreenOn}">
           <div class="danmaku-canvas" v-if="showFloatingDanmaku">
@@ -23,83 +50,96 @@
           </div>
 
           <div class="pre-class-mask" v-if="!isClassStarted">
-            <button class="start-btn primary" @click="startClass">🎬 开始上课</button>
+            <button class="start-btn" @click="startClass">🎬 开始上课</button>
           </div>
         </div>
 
         <div class="control-panel" v-if="isClassStarted">
           <div class="media-controls">
-            <button class="toggle-btn" :class="{ active: isCameraOn }" @click="toggleCamera">
-              {{ isCameraOn ? '📹 关摄像头' : '📹 开摄像头' }}
+            <button class="control-btn" :class="{ active: isCameraOn }" @click="toggleCamera">
+              {{ isCameraOn ? '📹 摄像头' : '📹 开启摄像头' }}
             </button>
-            <button class="toggle-btn screen-btn" :class="{ active: isScreenOn }" @click="toggleScreen">
-              {{ isScreenOn ? '💻 停共享' : '💻 享屏幕' }}
-            </button>
-          </div>
-          <div class="media-actions">
-            <button class="icon-btn" :class="{ active: isRecording }" :disabled="isUploading" @click="toggleRecording" title="录制片段">
-              {{ isRecording ? '⏹' : '⏺' }}
-            </button>
-            <button class="icon-btn" @click="showResourcePanel = !showResourcePanel" title="录播">
-              📼
+            <button class="control-btn" :class="{ active: isScreenOn, screen: isScreenOn }" @click="toggleScreen">
+              {{ isScreenOn ? '💻 屏幕共享中' : '💻 共享屏幕' }}
             </button>
           </div>
-          <button class="toggle-btn dm-toggle-btn" @click="showDanmaku = !showDanmaku">
-            {{ showDanmaku ? '🔕 隐藏侧边弹幕' : '💬 展开侧边弹幕' }}
-          </button>
-          <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">{{ showFloatingDanmaku ? '🚫 关飘屏' : '📢 开飘屏' }}</button>
-        </div>
-
-        <div class="upload-panel">
-          <button class="upload-toggle-btn" @click="showResourcePanel = !showResourcePanel">
-            📼 {{ showResourcePanel ? '收起录播管理' : '录播管理' }}
-          </button>
+          <div class="control-actions">
+            <button class="action-btn" :class="{ recording: isRecording }" :disabled="isUploading" @click="toggleRecording" title="录制">
+              <span class="btn-icon">{{ isRecording ? '⏹' : '⏺' }}</span>
+              <span class="btn-text">{{ isRecording ? '录制中' : '录制' }}</span>
+            </button>
+            <button class="action-btn" @click="showResourcePanel = !showResourcePanel" title="录播管理">
+              <span class="btn-icon">📼</span>
+              <span class="btn-text">录播</span>
+            </button>
+            <button class="action-btn" @click="showDanmaku = !showDanmaku">
+              <span class="btn-icon">{{ showDanmaku ? '💬' : '🔕' }}</span>
+              <span class="btn-text">{{ showDanmaku ? '弹幕' : '隐藏弹幕' }}</span>
+            </button>
+            <button class="action-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">
+              <span class="btn-icon">{{ showFloatingDanmaku ? '📢' : '🚫' }}</span>
+              <span class="btn-text">{{ showFloatingDanmaku ? '飘屏' : '关闭飘屏' }}</span>
+            </button>
+            <button class="action-btn stop" @click="stopLive">
+              <span class="btn-icon">⏹</span>
+              <span class="btn-text">结束直播</span>
+            </button>
+          </div>
         </div>
 
         <div class="resource-panel" v-if="showResourcePanel">
-          <div class="resource-header">📼 录播与资料管理</div>
-          <div class="resource-form">
-            <input v-model="resourceTitle" type="text" placeholder="资源名称（如：第4讲 录播）" />
-            <input v-model="resourceStartAt" type="datetime-local" />
-            <input ref="resourceFileInput" type="file" accept="video/*" @change="handleResourceFileChange" :disabled="isUploading" />
-            <div class="resource-actions">
-              <button class="toggle-btn" @click="addResource('prerecord')" :disabled="isUploading">上传预录视频</button>
-              <button class="toggle-btn" @click="addResource('recording')" :disabled="isUploading">保存直播录像</button>
-            </div>
-            <div class="upload-progress" v-if="isUploading">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{width: uploadProgress + '%'}"></div>
-              </div>
-              <div class="progress-text">上传中: {{ uploadProgress }}%</div>
-            </div>
-            <div class="upload-error" v-if="uploadError">{{ uploadError }}</div>
-            <div class="resource-hint">说明：视频会上传到后端存储服务，并同步本地列表。</div>
+          <div class="panel-header">
+            <span class="panel-title">📼 录播与资料管理</span>
+            <button class="close-btn" @click="showResourcePanel = false">×</button>
           </div>
-          <div class="resource-list">
-            <div class="resource-item" v-for="item in resourceItems" :key="item.id">
-              <div class="resource-meta">
-                <div class="resource-name">{{ item.name }}</div>
-                <div class="resource-sub">可观看时间：{{ formatStartAt(item.startAt) }}</div>
+          <div class="panel-body">
+            <div class="resource-form">
+              <input v-model="resourceTitle" type="text" placeholder="资源名称（如：第4讲 录播）" />
+              <input v-model="resourceStartAt" type="datetime-local" />
+              <input ref="resourceFileInput" type="file" accept="video/*" @change="handleResourceFileChange" :disabled="isUploading" />
+              <div class="form-actions">
+                <button class="form-btn" @click="addResource('prerecord')" :disabled="isUploading">上传预录视频</button>
+                <button class="form-btn" @click="addResource('recording')" :disabled="isUploading">保存直播录像</button>
               </div>
-              <div class="resource-actions">
-                <button class="ghost-btn" @click="openVideoLink(item.videoUrl)">打开</button>
-                <button class="delete-btn" @click="deleteResource(item)">删除</button>
+              <div class="upload-progress" v-if="isUploading">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{width: uploadProgress + '%'}"></div>
+                </div>
+                <div class="progress-text">上传中: {{ uploadProgress }}%</div>
               </div>
+              <div class="upload-error" v-if="uploadError">{{ uploadError }}</div>
+              <div class="resource-hint">说明：视频会上传到后端存储服务，并同步本地列表。</div>
             </div>
-            <div class="resource-empty" v-if="resourceItems.length === 0">暂无录播资源</div>
+            <div class="resource-list">
+              <div class="resource-item" v-for="item in resourceItems" :key="item.id">
+                <div class="resource-icon">🎬</div>
+                <div class="resource-info">
+                  <span class="resource-name">{{ item.name }}</span>
+                  <span class="resource-sub">可观看时间：{{ formatStartAt(item.startAt) }}</span>
+                </div>
+                <div class="resource-actions">
+                  <button class="item-btn" @click="openVideoLink(item.videoUrl)">打开</button>
+                  <button class="item-btn delete" @click="deleteResource(item)">删除</button>
+                </div>
+              </div>
+              <div class="resource-empty" v-if="resourceItems.length === 0">暂无录播资源</div>
+            </div>
           </div>
         </div>
       </section>
 
       <aside class="danmaku-sidebar" v-show="isClassStarted && showDanmaku">
-        <div class="board-title">💬 实时弹幕面板</div>
+        <div class="sidebar-header">
+          <span class="sidebar-title">💬 实时弹幕面板</span>
+        </div>
         <div class="danmaku-list">
           <div class="dm-item" v-for="(dm, index) in danmakuList" :key="index">
-            <span class="time">[{{ formatTime(dm.timestamp) }}]</span>: {{ dm.content }}
+            <span class="dm-time">[{{ formatTime(dm.timestamp) }}]</span>
+            <span class="dm-content">{{ dm.content }}</span>
           </div>
         </div>
       </aside>
-    </main>
+    </div>
   </div>
 </template>
 
@@ -112,7 +152,6 @@ import AgoraRTM from 'agora-rtm-sdk'
 const route = useRoute()
 const router = useRouter()
 
-// 【修复问题三】：读取真实的 courseId 并生成唯一房间号
 const APP_ID = 'ef5c5abed935411c8366d07d8af1d3ef' 
 const courseId = route.query.courseId || 'default'
 const CHANNEL = `course_room_${courseId}`          
@@ -131,12 +170,13 @@ const SCREEN_UID = CAMERA_UID + 10000
 const isClassStarted = ref(false)
 const isCameraOn = ref(false)
 const isScreenOn = ref(false)
-const showDanmaku = ref(true) // 弹幕面板开关
+const showDanmaku = ref(true)
 const showFloatingDanmaku = ref(true)
 const danmakuList = ref([])
 const floatingDanmakus = ref([])
 const showResourcePanel = ref(false)
 const isRecording = ref(false)
+const isSideNavCollapsed = ref(false)
 
 let rtcClient = null, screenClient = null, rtmClient = null, rtmChannel = null
 let localAudioTrack = null, localVideoTrack = null, screenVideoTrack = null
@@ -154,11 +194,13 @@ const formatTime = (ts) => {
   const d = new Date(ts)
   return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`
 }
+
 const showFly = (text) => {
   const id = Date.now();
   floatingDanmakus.value.push({ id, text, top: Math.random() * 400 + 20 });
   setTimeout(() => { floatingDanmakus.value = floatingDanmakus.value.filter(d => d.id !== id) }, 5000);
 };
+
 const startClass = async () => {
   try {
     rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
@@ -207,7 +249,6 @@ const toggleScreen = async () => {
     screenVideoTrack.close()
     screenVideoTrack = null
     isScreenOn.value = false
-    // 恢复摄像头样式
     const pip = document.getElementById('camera-video')
     if(pip) { pip.style.top = ''; pip.style.left = ''; } 
   } else {
@@ -226,15 +267,13 @@ const toggleScreen = async () => {
   }
 }
 
-// 【修复问题二】：极其顺滑的原生拖拽算法
 let isDragging = false
 let dragOffset = { x: 0, y: 0 }
 
 const startDrag = (e) => {
-  if (!isScreenOn.value) return // 只有在画中画模式才允许拖拽
+  if (!isScreenOn.value) return
   const pip = document.getElementById('camera-video')
   const rect = pip.getBoundingClientRect()
-  // 防止在调整大小把手（右下角）按下时触发拖拽
   if (e.clientX > rect.right - 25 && e.clientY > rect.bottom - 25) return 
 
   isDragging = true
@@ -586,44 +625,241 @@ onUnmounted(() => { stopLive() })
 .teacher-live-page {
   height: 100vh;
   display: flex;
-  flex-direction: column;
-  background: radial-gradient(circle at top left, #f6f8ff 0%, #f4f6f9 40%, #eef1f6 100%);
-  color: #111827;
-  font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Inter", "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #F8F9FA;
+  color: #1e293b;
 }
 
-.navbar {
-  height: 64px;
-  background: #ffffff;
+.side-nav {
+  width: 240px;
+  background: #F8F9FA;
+  padding: 24px 16px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  flex-direction: column;
+  gap: 24px;
+  border-right: 1px solid #e2e8f0;
+  transition: width 0.3s ease;
+  position: relative;
 }
 
-.logo {
+.side-nav.collapsed {
+  width: 64px;
+  padding: 24px 8px;
+}
+
+.side-nav.collapsed .brand-sub,
+.side-nav.collapsed .nav-text,
+.side-nav.collapsed .course-label,
+.side-nav.collapsed .course-name,
+.side-nav.collapsed .live-status {
+  display: none;
+}
+
+.side-nav.collapsed .brand-mark {
   font-size: 16px;
-  font-weight: 600;
-  color: #111827;
 }
 
-.stop-btn {
-  background: #111827;
+.side-nav.collapsed .course-info {
+  padding: 8px;
+}
+
+.collapse-btn {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.collapse-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.brand-mark {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #0F172A;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.nav-item.active {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.nav-icon {
+  font-size: 16px;
+}
+
+.course-info {
+  margin-top: auto;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.course-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.course-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.live-status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.live-status.live {
+  background: #A7F3D0;
+  color: #166534;
+}
+
+.live-status.waiting {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.video-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.video-container {
+  flex: 1;
+  background: #0f172a;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.main-screen {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.pip-window {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 200px;
+  height: 140px;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 12px;
+  z-index: 10;
+  cursor: move;
+  min-width: 120px;
+  min-height: 80px;
+}
+
+.pre-class-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.start-btn {
+  padding: 16px 40px;
+  font-size: 18px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #ffffff;
   border: none;
-  padding: 10px 18px;
   border-radius: 999px;
   cursor: pointer;
   font-weight: 600;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.2);
+  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.4);
+  transition: all 0.25s ease;
 }
 
-.stop-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 28px rgba(17, 24, 39, 0.24);
+.start-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(59, 130, 246, 0.5);
 }
 
 .danmaku-canvas {
@@ -642,216 +878,182 @@ onUnmounted(() => { stopLive() })
   animation: fly-left 6s linear;
   font-size: 20px;
   font-weight: 600;
-  color: #111827;
-  text-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
 }
 
 @keyframes fly-left {
-  from {
-    left: 100%;
-  }
-  to {
-    left: -320px;
-  }
-}
-
-.main-content {
-  display: flex;
-  flex-direction: row;
-  height: calc(100vh - 64px);
-  padding: 24px;
-  gap: 24px;
-}
-
-.video-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
-}
-
-.video-container {
-  flex: 1;
-  background: #0f172a;
-  position: relative;
-  border-radius: 18px;
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
-}
-
-.main-screen {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-}
-
-.pip-window {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  width: 240px;
-  height: 180px;
-  background: #111827;
-  border: 2px solid #111827;
-  border-radius: 14px;
-  z-index: 10;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.28);
-  resize: both;
-  overflow: hidden;
-  cursor: move;
-  min-width: 160px;
-  min-height: 110px;
-  max-width: 820px;
-  max-height: 520px;
-}
-
-.pre-class-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(15, 23, 42, 0.68);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 50;
-  backdrop-filter: blur(2px);
-}
-
-.start-btn {
-  padding: 14px 42px;
-  font-size: 18px;
-  background: #111827;
-  color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 600;
-  box-shadow: 0 16px 30px rgba(17, 24, 39, 0.28);
-}
-
-.back-btn {
-  background: #111827;
-  color: #ffffff;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  margin-right: 14px;
-  font-weight: 600;
+  from { left: 100%; }
+  to { left: -320px; }
 }
 
 .control-panel {
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 8px;
   display: flex;
   justify-content: space-between;
-  background: #ffffff;
-  padding: 16px 20px;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
   align-items: center;
-  gap: 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
-.upload-panel {
-  margin-top: 16px;
-}
-
-.upload-toggle-btn {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-size: 14px;
-  cursor: pointer;
-  color: #111827;
-  font-weight: 600;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-  transition: all 0.2s ease;
-}
-
-.upload-toggle-btn:hover {
-  background: #111827;
-  color: #ffffff;
-  border-color: #111827;
-}
-
-.media-actions {
+.media-controls {
   display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.icon-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  font-size: 16px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.icon-btn.active {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: #ffffff;
-  box-shadow: 0 10px 18px rgba(239, 68, 68, 0.25);
-}
-
-.icon-btn:disabled {
-  background: #f3f4f6;
-  color: #9ca3af;
-  cursor: not-allowed;
-}
-
-.resource-panel {
-  margin-top: 16px;
-  background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  padding: 16px;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-  display: flex;
-  flex-direction: column;
   gap: 12px;
 }
 
-.resource-header {
+.control-btn {
+  padding: 10px 18px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.control-btn:hover {
+  border-color: #3b82f6;
+}
+
+.control-btn.active {
+  background: #0F172A;
+  color: #ffffff;
+  border-color: #0F172A;
+}
+
+.control-btn.screen {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.control-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.action-btn.recording {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.action-btn.stop {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.btn-icon {
+  font-size: 16px;
+}
+
+.btn-text {
+  font-size: 12px;
+}
+
+.resource-panel {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.panel-title {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: #0f172a;
+}
+
+.close-btn {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px 8px;
+  line-height: 1;
+}
+
+.panel-body {
+  padding: 16px;
 }
 
 .resource-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-bottom: 16px;
 }
 
 .resource-form input[type="text"],
 .resource-form input[type="datetime-local"] {
-  border: 1px solid #e5e7eb;
+  padding: 10px 14px;
   border-radius: 10px;
-  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
   font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
 }
 
-.resource-actions {
+.resource-form input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-actions {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+}
+
+.form-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #0F172A;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form-btn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 .upload-progress {
@@ -860,37 +1062,39 @@ onUnmounted(() => { stopLive() })
 
 .progress-bar {
   height: 6px;
-  background: #e5e7eb;
-  border-radius: 999px;
+  background: #e2e8f0;
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #111827 0%, #374151 100%);
-  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
 .progress-text {
   font-size: 12px;
-  color: #6b7280;
+  color: #64748b;
   margin-top: 6px;
   text-align: center;
 }
 
 .upload-error {
   font-size: 12px;
-  color: #ef4444;
-  margin-top: 8px;
-  padding: 8px 10px;
+  color: #dc2626;
+  padding: 10px;
   background: #fef2f2;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .resource-hint {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 10px;
 }
 
 .resource-list {
@@ -901,14 +1105,19 @@ onUnmounted(() => { stopLive() })
 
 .resource-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: #f9fafb;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
   border-radius: 12px;
 }
 
-.resource-meta {
+.resource-icon {
+  font-size: 24px;
+}
+
+.resource-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -917,16 +1126,12 @@ onUnmounted(() => { stopLive() })
 .resource-name {
   font-size: 13px;
   font-weight: 600;
+  color: #0f172a;
 }
 
 .resource-sub {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.resource-empty {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .resource-actions {
@@ -934,105 +1139,143 @@ onUnmounted(() => { stopLive() })
   gap: 8px;
 }
 
-.ghost-btn {
+.item-btn {
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
-  cursor: pointer;
   font-size: 12px;
   font-weight: 500;
-  color: #374151;
+  color: #334155;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.ghost-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+.item-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #3b82f6;
 }
 
-.delete-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #fca5a5;
+.item-btn.delete {
+  border-color: #fca5a5;
   background: #fef2f2;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
   color: #dc2626;
-  transition: all 0.2s ease;
 }
 
-.delete-btn:hover {
+.item-btn.delete:hover {
   background: #fee2e2;
-  border-color: #f87171;
 }
 
-.media-controls {
-  display: flex;
-  gap: 12px;
-}
-
-.toggle-btn {
-  padding: 10px 18px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  cursor: pointer;
-  font-weight: 600;
-  background: #f9fafb;
-  color: #111827;
-  transition: all 0.2s ease;
-}
-
-.toggle-btn.active {
-  background: #111827;
-  color: #ffffff;
-  border-color: #111827;
-}
-
-.toggle-btn.screen-btn.active {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
-.dm-toggle-btn {
-  background: #f3f4f6;
-  color: #111827;
-  border-color: #e5e7eb;
+.resource-empty {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 20px;
 }
 
 .danmaku-sidebar {
   width: 300px;
   background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
 }
 
-.board-title {
-  padding: 16px;
-  font-size: 13px;
+.sidebar-header {
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebar-title {
+  font-size: 14px;
   font-weight: 600;
-  border-bottom: 1px solid #e5e7eb;
-  color: #111827;
-  letter-spacing: 0.4px;
+  color: #0f172a;
 }
 
 .danmaku-list {
-  padding: 12px 14px;
-  overflow-y: auto;
   flex: 1;
+  padding: 14px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-size: 13px;
-  color: #111827;
 }
 
-.time {
-  color: #6b7280;
-  font-size: 12px;
+.dm-item {
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.dm-time {
+  color: #64748b;
+  font-size: 11px;
+  margin-right: 8px;
+}
+
+.dm-content {
+  color: #1e293b;
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .danmaku-sidebar {
+    width: 100%;
+    max-height: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .teacher-live-page {
+    flex-direction: column;
+  }
+  
+  .side-nav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .course-info {
+    margin-top: 0;
+    margin-left: auto;
+    padding: 10px 14px;
+  }
+  
+  .main-content {
+    padding: 12px;
+  }
+  
+  .control-panel {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .control-actions {
+    flex-wrap: wrap;
+  }
 }
 </style>

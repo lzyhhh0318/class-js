@@ -1,124 +1,163 @@
 <template>
   <div class="app-wrapper">
-    <header class="navbar">
-      <div class="logo">
-        <button class="back-btn" @click="goBack">⬅ 返回主页</button>
-        🚀 智能软件工程平台 - 🧑‍🎓 学生端 (当前房间: {{ courseId }})
+    <aside class="side-nav" :class="{ collapsed: isSideNavCollapsed }">
+      <div class="brand">
+        <div class="brand-mark">SE大师</div>
+        <div class="brand-sub">智能软件工程平台</div>
       </div>
-    </header>
+      <nav class="nav-list">
+        <button class="nav-item active">
+          <span class="nav-icon">📹</span>
+          <span class="nav-text">直播课堂</span>
+        </button>
+        <button class="nav-item" @click="goBack">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-text">返回主页</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">📚</span>
+          <span class="nav-text">课程大纲</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">📝</span>
+          <span class="nav-text">作业</span>
+        </button>
+      </nav>
+      <div class="course-info">
+        <div class="course-label">当前课程</div>
+        <div class="course-name">课程 {{ courseId }}</div>
+        <div class="live-status" :class="isLive ? 'live' : 'waiting'">
+          {{ isLive ? '🟢 直播中' : '⏳ 等待开播' }}
+        </div>
+      </div>
+      <button class="collapse-btn" @click="isSideNavCollapsed = !isSideNavCollapsed">
+        {{ isSideNavCollapsed ? '▶' : '◀' }}
+      </button>
+    </aside>
 
-    <main class="main-content">
+    <div class="main-content">
       <section class="video-section">
         <div class="video-container" :class="{'has-screen': isTeacherScreenOn}">
-          
           <div id="screen-video" class="main-screen" v-show="isTeacherScreenOn"></div>
-          
           <div id="camera-video" 
                :class="isTeacherScreenOn ? 'pip-window' : 'main-screen'" 
                v-show="isTeacherCameraOn"
                @mousedown="startDrag">
           </div>
-
           <div v-if="!isTeacherScreenOn && !isTeacherCameraOn" class="waiting-text">
-            <h1>⏳ 正在等待老师开播...</h1>
+            <div class="waiting-icon">📺</div>
+            <h2>正在等待老师开播...</h2>
+            <p>请保持页面打开，开播后将自动开始播放</p>
           </div>
         </div>
 
         <div class="video-controls">
-          <button class="toggle-btn" @click="showFloatingDanmaku = !showFloatingDanmaku">
-             {{ showFloatingDanmaku ? '🚫 关弹幕' : '📢 开弹幕' }}
-          </button>
-          <select v-model="danmakuDensity" class="danmaku-density-select">
-            <option value="high">大量</option>
-            <option value="normal">少量</option>
-            <option value="low">微量</option>
-          </select>
-          <input type="text" v-model="inputText" @keyup.enter="sendDanmaku" placeholder="发个弹幕互动..." class="mock-input" />
-          <button class="mock-btn primary" @click="sendDanmaku">发送弹幕</button>
+          <div class="control-left">
+            <button class="control-btn" :class="{ active: showFloatingDanmaku }" @click="showFloatingDanmaku = !showFloatingDanmaku">
+              {{ showFloatingDanmaku ? '📢 弹幕' : '🚫 弹幕' }}
+            </button>
+            <button class="control-btn" @click="toggleFullscreen">
+              {{ isFullscreen ? '⛶ 退出全屏' : '⛶ 全屏' }}
+            </button>
+            <select v-model="danmakuDensity" class="density-select">
+              <option value="high">大量</option>
+              <option value="normal">少量</option>
+              <option value="low">微量</option>
+            </select>
+          </div>
+          <div class="control-input">
+            <input type="text" v-model="inputText" @keyup.enter="sendDanmaku" placeholder="发个弹幕互动..." />
+            <button class="send-btn" @click="sendDanmaku">发送</button>
+          </div>
         </div>
       </section>
 
       <aside class="side-panel">
-        <div class="panel-group">
-          <section class="panel-card">
-            <header class="panel-header" @click="togglePanel('ai')">
-              <div class="panel-title">🤖 AI助手</div>
-              <span class="panel-toggle">{{ panelStates.ai ? '收起' : '展开' }}</span>
-            </header>
-            <div class="panel-body" v-show="panelStates.ai">
-              <div class="ai-thread">
-                <div class="ai-msg" v-for="(msg, index) in aiMessages" :key="index" :class="msg.role">
-                  <span class="ai-role">{{ msg.role === 'user' ? '我' : 'AI' }}</span>
+        <div class="ai-panel">
+          <div class="panel-header">
+            <div class="ai-icon">🤖</div>
+            <span class="panel-title">AI教学助手</span>
+            <button class="card-toggle" @click="showAiPanel = !showAiPanel">
+              {{ showAiPanel ? '收起' : '展开' }}
+            </button>
+          </div>
+          <div v-show="showAiPanel">
+            <div class="chat-container">
+              <div class="chat-message bot" v-for="(msg, index) in aiMessages" :key="index">
+                <div class="chat-bubble" :class="msg.role">
+                  <span class="chat-role">{{ msg.role === 'user' ? '我' : 'AI' }}</span>
                   <p>{{ msg.content }}</p>
                 </div>
               </div>
-              <div class="ai-input">
-                <input type="text" v-model="aiInput" placeholder="输入问题或上传图片的说明" />
-                <button @click="sendAiQuestion">发送</button>
-              </div>
-              <div class="panel-hint">接口预留：POST /api/ai/chat</div>
             </div>
-          </section>
+            <div class="chat-input-wrap">
+              <input type="text" v-model="aiInput" placeholder="输入问题..." @keyup.enter="sendAiQuestion" />
+              <button class="chat-send" @click="sendAiQuestion">→</button>
+            </div>
+          </div>
+        </div>
 
-          <section class="panel-card">
-            <header class="panel-header" @click="togglePanel('board')">
-              <div class="panel-title">📝 留言板</div>
-              <span class="panel-toggle">{{ panelStates.board ? '收起' : '展开' }}</span>
-            </header>
-            <div class="panel-body" v-show="panelStates.board">
-              <div class="board-list">
-                <div class="board-item" v-for="(item, index) in boardMessages" :key="index">
-                  <span class="board-name">{{ item.name }}</span>
-                  <span class="board-text">{{ item.text }}</span>
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-title">💬 弹幕面板</span>
+            <button class="card-toggle" @click="showDanmakuPanel = !showDanmakuPanel">
+              {{ showDanmakuPanel ? '收起' : '展开' }}
+            </button>
+          </div>
+          <div class="card-body" v-show="showDanmakuPanel">
+            <div class="danmaku-list">
+              <div class="dm-item" v-for="(dm, index) in activeDanmakus.slice(-20)" :key="index">
+                <span class="dm-content">{{ dm }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-title">📝 留言板</span>
+            <button class="card-toggle" @click="showBoardPanel = !showBoardPanel">
+              {{ showBoardPanel ? '收起' : '展开' }}
+            </button>
+          </div>
+          <div class="card-body" v-show="showBoardPanel">
+            <div class="board-list">
+              <div class="board-item" v-for="(item, index) in boardMessages" :key="index">
+                <span class="board-name">{{ item.name }}</span>
+                <span class="board-text">{{ item.text }}</span>
+              </div>
+            </div>
+            <div class="board-input-wrap">
+              <input type="text" v-model="boardInput" placeholder="留言给老师或同学" @keyup.enter="postBoardMessage" />
+              <button class="board-send" @click="postBoardMessage">发布</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="card-header">
+            <span class="card-title">📚 资料库</span>
+            <button class="card-toggle" @click="showResourceListPanel = !showResourceListPanel">
+              {{ showResourceListPanel ? '收起' : '展开' }}
+            </button>
+          </div>
+          <div class="card-body" v-show="showResourceListPanel">
+            <div class="resource-list">
+              <div class="resource-item" v-for="item in visibleResources" :key="item.id" @click="openResourceItem(item)">
+                <div class="resource-icon" :style="{ background: getResourceColor(item.type) }">
+                  {{ getResourceIcon(item.type) }}
                 </div>
-              </div>
-              <div class="board-input">
-                <input type="text" v-model="boardInput" placeholder="留言给老师或同学" />
-                <button @click="postBoardMessage">发布</button>
-              </div>
-              <div class="panel-hint">接口预留：留言板写入与拉取</div>
-            </div>
-          </section>
-
-          <section class="panel-card">
-            <header class="panel-header" @click="togglePanel('danmaku')">
-              <div class="panel-title">💬 弹幕面板</div>
-              <span class="panel-toggle">{{ panelStates.danmaku ? '收起' : '展开' }}</span>
-            </header>
-            <div class="panel-body" v-show="panelStates.danmaku">
-              <div class="danmaku-list">
-                <div class="dm-item" v-for="(dm, i) in activeDanmakus" :key="i">{{ dm }}</div>
-              </div>
-              <div class="panel-hint">接口预留：弹幕数据库查询与归档</div>
-            </div>
-          </section>
-
-          <section class="panel-card">
-            <header class="panel-header" @click="togglePanel('library')">
-              <div class="panel-title">📚 资料库</div>
-              <span class="panel-toggle">{{ panelStates.library ? '收起' : '展开' }}</span>
-            </header>
-            <div class="panel-body" v-show="panelStates.library">
-              <div class="resource-list">
-                <div class="resource-item" v-for="item in visibleResources" :key="item.id" @click="openResourceItem(item)">
-                  <div class="resource-meta">
-                    <span class="resource-name">{{ item.name }}</span>
-                    <span class="resource-type">{{ item.type }}</span>
-                  </div>
-                  <button class="resource-btn" :disabled="!item.available">{{ item.available ? '查看' : '未开放' }}</button>
+                <div class="resource-info">
+                  <span class="resource-name">{{ item.name }}</span>
+                  <span class="resource-type">{{ item.type }}</span>
                 </div>
+                <button class="resource-btn" :disabled="!item.available">{{ item.available ? '查看' : '未开放' }}</button>
               </div>
-              <div class="resource-player" v-if="selectedResource">
-                <div class="player-title">{{ selectedResource.name }}</div>
-                <video v-if="selectedResource.type === 'VIDEO'" :src="selectedResource.url" controls></video>
-                <div class="player-hint" v-else>该资源为文档类型，后端接入后将提供查看入口。</div>
-              </div>
-              <div class="panel-hint">接口预留：资源库列表与下载</div>
             </div>
-          </section>
+          </div>
         </div>
       </aside>
-    </main>
+    </div>
 
     <div class="danmaku-canvas" v-if="showFloatingDanmaku">
       <div class="fly-item" v-for="dm in floatingDanmakus" :key="dm.id" :style="{top: dm.top + 'px'}">{{ dm.text }}</div>
@@ -164,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AgoraRTC from 'agora-rtc-sdk-ng'
 import AgoraRTM from 'agora-rtm-sdk'
@@ -184,6 +223,8 @@ const inputText = ref('')
 const activeDanmakus = ref([])
 const showFloatingDanmaku = ref(true)
 const floatingDanmakus = ref([])
+const showDanmakuPanel = ref(true)
+const isSideNavCollapsed = ref(false)
 
 const danmakuDensity = ref('normal')
 const danmakuLimit = {
@@ -200,29 +241,26 @@ const userDanmakuTimestamps = ref({})
 const DANMAKU_LIMIT_PER_MINUTE = 10
 
 const currentPlayingVideo = ref(null)
-const panelStates = ref({
-  ai: true,
-  board: false,
-  danmaku: true,
-  library: false
-})
 const aiInput = ref('')
 const aiMessages = ref([
   { role: 'assistant', content: '你好，我是课堂 AI 助手，可以帮你整理知识点。' }
 ])
+const showAiPanel = ref(true)
 const boardInput = ref('')
 const boardMessages = ref([
   { name: '系统', text: '欢迎留言，老师下课后会集中回复。' }
 ])
+const showBoardPanel = ref(true)
 const resourceItems = ref([
   { id: 'ppt-01', name: '第1讲 课程导论', type: 'PPT' },
   { id: 'pdf-02', name: '第2讲 需求分析', type: 'PDF' },
   { id: 'ppt-03', name: '第3讲 架构设计', type: 'PPT' },
-  { id: 'ppt-demo', name: 'lcs4.pptx', type: 'PPT', demo: true, pages: 12 }
+  { id: 'ppt-demo', name: '软件工程.pptx', type: 'PPT', demo: true, pages: 12 }
 ])
 const visibleResources = ref([])
 const selectedResource = ref(null)
 const showResourcePreview = ref(false)
+const showResourceListPanel = ref(true)
 const currentPage = ref(1)
 const floatWindowStyle = ref({
   left: '50px',
@@ -230,6 +268,20 @@ const floatWindowStyle = ref({
   width: '500px',
   height: '400px'
 })
+
+const isLive = computed(() => isTeacherCameraOn.value || isTeacherScreenOn.value)
+const isFullscreen = ref(false)
+
+const toggleFullscreen = () => {
+  const container = document.querySelector('.video-container')
+  if (!document.fullscreenElement) {
+    container?.requestFullscreen()
+    isFullscreen.value = true
+  } else {
+    document.exitFullscreen()
+    isFullscreen.value = false
+  }
+}
 
 let isDragging = false
 let isResizing = false
@@ -309,14 +361,29 @@ const getSlideContent = (page) => {
   return contents[page] || `第 ${page} 页内容`
 }
 
+const getResourceColor = (type) => {
+  const colors = {
+    'PPT': '#dbeafe',
+    'PDF': '#fef3c7',
+    'VIDEO': '#dcfce7'
+  }
+  return colors[type] || '#f1f5f9'
+}
+
+const getResourceIcon = (type) => {
+  const icons = {
+    'PPT': '📊',
+    'PDF': '📄',
+    'VIDEO': '🎬'
+  }
+  return icons[type] || '📁'
+}
+
 const RESOURCE_STORAGE_KEY = `course_resources_${courseId}`
 
 let rtcClient = null, rtmClient = null, rtmChannel = null
 
 const goBack = () => { router.push('/dashboard') }
-const togglePanel = (key) => {
-  panelStates.value[key] = !panelStates.value[key]
-}
 
 const sendAiQuestion = () => {
   if (!aiInput.value.trim()) return
@@ -510,7 +577,6 @@ const playVideoInLive = (video) => {
 
 let videoCheckInterval = null
 
-// 画中画窗口拖拽逻辑
 let isPipDragging = false
 let pipDragOffset = { x: 0, y: 0 }
 const startDrag = (e) => {
@@ -558,57 +624,186 @@ onUnmounted(async () => {
 .app-wrapper {
   height: 100vh;
   display: flex;
-  flex-direction: column;
-  font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background: radial-gradient(circle at top left, #f6f8ff 0%, #f4f6f9 40%, #eef1f6 100%);
-  color: #111827;
+  font-family: "Inter", "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #F8F9FA;
+  color: #1e293b;
 }
 
-.navbar {
-  height: 64px;
+.side-nav {
+  width: 240px;
+  background: #F8F9FA;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-right: 1px solid #e2e8f0;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.side-nav.collapsed {
+  width: 64px;
+  padding: 24px 8px;
+}
+
+.side-nav.collapsed .brand-sub,
+.side-nav.collapsed .nav-text,
+.side-nav.collapsed .course-label,
+.side-nav.collapsed .course-name,
+.side-nav.collapsed .live-status {
+  display: none;
+}
+
+.side-nav.collapsed .brand-mark {
+  font-size: 16px;
+}
+
+.side-nav.collapsed .course-info {
+  padding: 8px;
+}
+
+.collapse-btn {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
+  color: #64748b;
+  font-size: 10px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+  z-index: 10;
 }
 
-.back-btn {
-  background: #111827;
-  color: #ffffff;
+.collapse-btn:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.brand-mark {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #0F172A;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: none;
-  padding: 6px 14px;
-  border-radius: 999px;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #64748b;
   cursor: pointer;
-  margin-right: 14px;
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.nav-item.active {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.nav-icon {
+  font-size: 16px;
+}
+
+.course-info {
+  margin-top: auto;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.course-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.course-name {
+  font-size: 14px;
   font-weight: 600;
+  color: #0f172a;
+}
+
+.live-status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.live-status.live {
+  background: #A7F3D0;
+  color: #166534;
+}
+
+.live-status.waiting {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .main-content {
+  flex: 1;
   display: flex;
-  flex-direction: row;
-  height: calc(100vh - 64px);
-  padding: 24px;
-  gap: 24px;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .video-section {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  min-width: 0;
+  gap: 16px;
 }
 
 .video-container {
   flex: 1;
   background: #0f172a;
   position: relative;
-  border-radius: 18px;
-  border: 1px solid #e5e7eb;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  border: 1px solid #e2e8f0;
 }
 
 .main-screen {
@@ -622,42 +817,46 @@ onUnmounted(async () => {
 
 .pip-window {
   position: absolute;
-  top: 18px;
-  right: 18px;
-  width: 240px;
-  height: 180px;
-  background: #111827;
-  border: 2px solid #111827;
-  border-radius: 14px;
+  top: 16px;
+  right: 16px;
+  width: 200px;
+  height: 140px;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 12px;
   z-index: 10;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.28);
-  resize: both;
-  overflow: hidden;
   cursor: move;
-  min-width: 160px;
-  min-height: 110px;
-  max-width: 820px;
-  max-height: 520px;
-}
-
-.video-player-placeholder:not(.has-screen) .pip-window {
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  border: none;
-  resize: none;
-  border-radius: 0;
+  min-width: 120px;
+  min-height: 80px;
 }
 
 .waiting-text {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #e2e8f0;
+  color: #94a3b8;
   text-align: center;
+  gap: 12px;
+}
+
+.waiting-icon {
+  font-size: 64px;
+}
+
+.waiting-text h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.waiting-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
 }
 
 .danmaku-canvas {
@@ -676,207 +875,342 @@ onUnmounted(async () => {
   animation: fly-left 6s linear;
   font-size: 20px;
   font-weight: 600;
-  color: #111827;
-  text-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   white-space: nowrap;
 }
 
 @keyframes fly-left {
-  from {
-    left: 100%;
-  }
-  to {
-    left: -320px;
-  }
+  from { left: 100%; }
+  to { left: -320px; }
 }
 
 .video-controls {
-  height: 64px;
   background: #ffffff;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  gap: 12px;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
-
-.toggle-btn {
-  padding: 10px 18px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  cursor: pointer;
-  font-weight: 600;
-  background: #f9fafb;
-  color: #111827;
-  transition: all 0.2s ease;
-}
-
-.mock-input {
-  flex: 1;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  outline: none;
-  background: #ffffff;
-  color: #111827;
-}
-
-.danmaku-density-select {
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #111827;
-  font-size: 13px;
-  cursor: pointer;
-  outline: none;
-}
-
-.mock-btn.primary {
-  background: #111827;
-  color: #ffffff;
-  padding: 10px 22px;
-  border-radius: 999px;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.side-panel {
-  width: 320px;
-  background: #ffffff;
-  border-radius: 18px;
-  border: 1px solid #e5e7eb;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
-}
-
-.panel-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.panel-card {
-  background: #ffffff;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-}
-
-.panel-header {
+  padding: 14px 20px;
+  border-radius: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
-  cursor: pointer;
-  background: #f9fafb;
-  font-weight: 600;
-  font-size: 14px;
-  color: #111827;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
-.panel-toggle {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.panel-body {
-  padding: 12px 14px 14px;
+.control-left {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: #111827;
-}
-
-.ai-thread {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
-  max-height: 160px;
-  overflow-y: auto;
 }
 
-.ai-msg {
-  background: #f3f4f6;
-  padding: 8px 10px;
-  border-radius: 10px;
+.control-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.control-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.control-btn.active {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.density-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
   font-size: 12px;
-  color: #111827;
+  cursor: pointer;
+  outline: none;
 }
 
-.ai-msg.user {
-  background: #e0f2fe;
-}
-
-.ai-role {
-  display: block;
-  color: #0284c7;
-  font-size: 11px;
-  margin-bottom: 4px;
-}
-
-.ai-input,
-.board-input {
+.control-input {
   display: flex;
   gap: 8px;
 }
 
-.ai-input input,
-.board-input input {
-  flex: 1;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  color: #111827;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
+.control-input input {
+  padding: 10px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  width: 200px;
+  outline: none;
+  transition: all 0.2s ease;
 }
 
-.ai-input button,
-.board-input button {
-  background: #111827;
-  border: none;
+.control-input input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.send-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: #0F172A;
   color: #ffffff;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.send-btn:hover {
+  background: #1e293b;
+}
+
+.side-panel {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ai-panel {
+  background: #ffffff;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ai-icon {
+  font-size: 18px;
+}
+
+.panel-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.panel-menu {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.panel-menu:hover {
+  background: #f1f5f9;
+}
+
+.chat-container {
+  flex: 1;
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-message {
+  display: flex;
+}
+
+.chat-message.bot {
+  justify-content: flex-start;
+}
+
+.chat-message.user {
+  justify-content: flex-end;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f1f5f9;
+}
+
+.chat-bubble.user {
+  background: #3b82f6;
+}
+
+.chat-role {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #2563eb;
+}
+
+.chat-bubble.user .chat-role {
+  color: #bfdbfe;
+}
+
+.chat-bubble p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.chat-bubble.user p {
+  color: #ffffff;
+}
+
+.chat-input-wrap {
+  padding: 12px 14px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input-wrap input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.chat-input-wrap input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.chat-send {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #0F172A;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-card {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.card-toggle {
+  font-size: 12px;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.card-toggle:hover {
+  background: #e2e8f0;
+}
+
+.card-body {
+  padding: 14px;
 }
 
 .board-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 140px;
+  max-height: 120px;
   overflow-y: auto;
+  margin-bottom: 12px;
 }
 
 .board-item {
-  background: #f9fafb;
   padding: 8px 10px;
-  border-radius: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
   font-size: 12px;
 }
 
 .board-name {
-  color: #f59e0b;
-  margin-right: 6px;
+  color: #d97706;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.board-input-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.board-input-wrap input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  font-size: 12px;
+  outline: none;
+}
+
+.board-send {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #0F172A;
+  color: #ffffff;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .danmaku-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 160px;
+  gap: 6px;
+  max-height: 150px;
   overflow-y: auto;
+}
+
+.dm-item {
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
   font-size: 12px;
-  color: #111827;
+}
+
+.dm-content {
+  color: #1e293b;
+  word-break: break-all;
 }
 
 .resource-list {
@@ -887,67 +1221,62 @@ onUnmounted(async () => {
 
 .resource-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: #f9fafb;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 10px;
+  background: #f8fafc;
   border-radius: 10px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resource-item:hover {
+  background: #f1f5f9;
+}
+
+.resource-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.resource-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .resource-name {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .resource-type {
   font-size: 11px;
-  color: #6b7280;
+  color: #64748b;
 }
 
 .resource-btn {
-  background: #111827;
-  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #0F172A;
   color: #ffffff;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 11px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .resource-btn:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: #e2e8f0;
+  color: #94a3b8;
   cursor: not-allowed;
-}
-
-.resource-player {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.player-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.resource-player video {
-  width: 100%;
-  border-radius: 10px;
-  background: #111827;
-}
-
-.player-hint {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.panel-hint {
-  font-size: 11px;
-  color: #6b7280;
 }
 
 .float-window {
@@ -955,13 +1284,11 @@ onUnmounted(async () => {
   background: #ffffff;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
   z-index: 1000;
   cursor: move;
-  min-width: 300px;
-  min-height: 250px;
-  max-width: 90vw;
-  max-height: 90vh;
+  min-width: 320px;
+  min-height: 280px;
 }
 
 .float-header {
@@ -969,35 +1296,30 @@ onUnmounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #111827;
+  background: #0f172a;
   color: #ffffff;
   cursor: move;
 }
 
 .float-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .float-close {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   border: none;
   color: #ffffff;
-  font-size: 20px;
+  font-size: 18px;
   cursor: pointer;
   padding: 2px 8px;
   line-height: 1;
   border-radius: 6px;
-  transition: background 0.2s ease;
-}
-
-.float-close:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 
 .float-body {
   padding: 16px;
-  height: calc(100% - 44px);
+  height: calc(100% - 48px);
   overflow-y: auto;
 }
 
@@ -1007,9 +1329,8 @@ onUnmounted(async () => {
   bottom: 0;
   width: 20px;
   height: 20px;
-  background: #111827;
+  background: #0f172a;
   cursor: se-resize;
-  border-radius: 0 0 16px 0;
 }
 
 .resize-handle::after {
@@ -1019,15 +1340,14 @@ onUnmounted(async () => {
   bottom: 4px;
   width: 10px;
   height: 10px;
-  border-right: 2px solid #ffffff;
-  border-bottom: 2px solid #ffffff;
-  border-radius: 0 0 4px 0;
+  border-right: 2px solid #64748b;
+  border-bottom: 2px solid #64748b;
 }
 
 .ppt-preview {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .ppt-toolbar {
@@ -1038,71 +1358,65 @@ onUnmounted(async () => {
 }
 
 .nav-btn {
-  background: #111827;
+  padding: 8px 18px;
+  border-radius: 8px;
+  background: #3b82f6;
   color: #ffffff;
   border: none;
-  padding: 10px 20px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.nav-btn:hover:not(:disabled) {
-  background: #374151;
+  cursor: pointer;
 }
 
 .nav-btn:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: #e2e8f0;
+  color: #94a3b8;
   cursor: not-allowed;
 }
 
 .page-indicator {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #111827;
+  color: #0f172a;
   min-width: 80px;
   text-align: center;
 }
 
 .ppt-content {
-  background: #f9fafb;
-  border-radius: 16px;
-  padding: 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 18px;
 }
 
 .ppt-slide {
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
   overflow: hidden;
 }
 
 .slide-header {
-  background: linear-gradient(135deg, #111827 0%, #374151 100%);
+  background: #3b82f6;
   color: #ffffff;
-  padding: 12px 20px;
-  font-size: 13px;
+  padding: 10px 16px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .slide-body {
-  padding: 24px;
+  padding: 20px;
 }
 
 .slide-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  color: #111827;
-  margin-bottom: 20px;
+  color: #0f172a;
+  margin-bottom: 16px;
   text-align: center;
 }
 
 .slide-content {
-  font-size: 14px;
-  color: #374151;
+  font-size: 13px;
+  color: #334155;
   line-height: 1.8;
 }
 
@@ -1128,17 +1442,63 @@ onUnmounted(async () => {
 
 .pdf-hint {
   font-size: 12px;
-  color: #6b7280;
+  color: #64748b;
   margin-top: 8px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1024px) {
   .main-content {
     flex-direction: column;
   }
-
+  
   .side-panel {
     width: 100%;
+  }
+  
+  .ai-panel {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-wrapper {
+    flex-direction: column;
+  }
+  
+  .side-nav {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .course-info {
+    margin-top: 0;
+    margin-left: auto;
+    padding: 10px 14px;
+  }
+  
+  .main-content {
+    padding: 12px;
+  }
+  
+  .control-input input {
+    width: 150px;
   }
 }
 </style>
