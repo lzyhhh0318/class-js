@@ -7,7 +7,6 @@ import { db, type Material, type MaterialVersion } from '../db.js'
 
 const router = Router()
 
-// 代理OSS文件预览（解决跨域问题）
 router.get('/preview', async (req: Request, res: Response) => {
   try {
     const { url } = req.query
@@ -18,7 +17,6 @@ router.get('/preview', async (req: Request, res: Response) => {
       return
     }
 
-    // 从OSS获取文件
     console.log('正在获取文件:', url)
     const response = await fetch(url)
     console.log('OSS响应状态:', response.status)
@@ -28,18 +26,13 @@ router.get('/preview', async (req: Request, res: Response) => {
       return
     }
 
-    // 获取内容类型
     const contentType = response.headers.get('content-type') || 'application/octet-stream'
     console.log('文件类型:', contentType)
     
-    // 设置响应头
     res.setHeader('Content-Type', contentType)
     res.setHeader('Cache-Control', 'public, max-age=86400')
-    
-    // 允许跨域
     res.setHeader('Access-Control-Allow-Origin', '*')
     
-    // 流式传输
     const buffer = await response.arrayBuffer()
     console.log('文件大小:', buffer.byteLength)
     res.send(Buffer.from(buffer))
@@ -155,10 +148,8 @@ router.get('/materials/:id', (req: Request, res: Response) => {
 })
 
 router.post('/materials', upload.single('file'), (req: Request, res: Response) => {
-  // 支持两种方式：1. 直接上传文件 2. 已上传到OSS，只保存元数据
   const { courseId, chapterId, title, description, visibility, userId, category, ossUrl, fileName, fileSize } = req.body
   
-  // 如果没有文件但有ossUrl，说明文件已上传到OSS
   if (!req.file && ossUrl) {
     if (!courseId || !title) {
       res.status(400).json({ success: false, error: '缺少必要参数' })
@@ -226,7 +217,6 @@ router.post('/materials', upload.single('file'), (req: Request, res: Response) =
     return
   }
 
-  // 原有逻辑：直接上传文件
   const file = req.file
   if (!file) {
     res.status(400).json({ success: false, error: '请上传文件' })

@@ -150,7 +150,6 @@ router.post('/', async (req: Request, res: Response) => {
           const utilization = t.estimatedTime / timeMinutes;
           score += Math.round(utilization * 15);
 
-          // 对最近推荐过的任务降权，让不同任务轮换出现
           if (recentSet.has(t.id)) {
             score -= 30;
           }
@@ -166,7 +165,6 @@ router.post('/', async (req: Request, res: Response) => {
         reason = `只需 ${bestTask.estimatedTime} 分钟，刚好在你的 ${timeMinutes} 分钟内完成`;
         steps = ["1. 专注准备", "2. 开始执行", "3. 标记完成"];
       } else {
-        // 没有能在时间内完成的任务，对长任务进行拆分
         let bestTask = tasks[0];
         let bestScore = -999;
 

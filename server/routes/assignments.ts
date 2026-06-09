@@ -97,13 +97,11 @@ router.post('/:id/submit', upload.single('file'), (req: Request, res: Response) 
   let actualFileSize = 0
 
   if (req.file) {
-    // 使用本地文件
     try { req.file.originalname = Buffer.from(req.file.originalname, 'latin1').toString('utf8') } catch {}
     actualFileName = req.file.originalname
     actualFilePath = '/uploads/submissions/' + path.basename(req.file.path)
     actualFileSize = req.file.size
   } else if (ossUrl) {
-    // 使用OSS URL
     actualFileName = fileName || 'submission'
     actualFilePath = ossUrl
     actualFileSize = parseInt(fileSize as string) || 0

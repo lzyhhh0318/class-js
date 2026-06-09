@@ -11,7 +11,6 @@ if (!fs.existsSync(videoDir)) {
   fs.mkdirSync(videoDir, { recursive: true })
 }
 
-// 资源元数据存储文件
 const metaFile = path.join(process.cwd(), 'uploads', 'video-resources.json')
 
 interface ResourceMeta {
@@ -53,7 +52,6 @@ const upload = multer({
   limits: { fileSize: 1024 * 1024 * 1024 },
 })
 
-// 上传视频 + 保存资源元数据
 router.post('/upload', upload.single('file'), (req: Request, res: Response) => {
   const file = req.file
   if (!file) {
@@ -95,7 +93,6 @@ router.post('/upload', upload.single('file'), (req: Request, res: Response) => {
   })
 })
 
-// 获取某课程的视频资源列表
 router.get('/resources', (req: Request, res: Response) => {
   const { courseId } = req.query
   if (!courseId) {
@@ -107,7 +104,6 @@ router.get('/resources', (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: resources })
 })
 
-// 获取视频文件列表（兼容旧接口）
 router.get('/list', (req: Request, res: Response) => {
   const { courseId } = req.query
   if (!courseId) {
@@ -144,7 +140,6 @@ function getContentType(filePath: string): string {
   return contentTypes[ext] || 'video/mp4'
 }
 
-// 视频流代理（支持Range请求）
 router.get('/stream/:courseId/:fileName', (req: Request, res: Response) => {
   const { fileName } = req.params
   const decodedName = decodeURIComponent(fileName)
@@ -186,17 +181,14 @@ router.get('/stream/:courseId/:fileName', (req: Request, res: Response) => {
   }
 })
 
-// 删除视频资源（同时删除元数据和文件）
 router.delete('/delete', (req: Request, res: Response) => {
   const { id, ossPath } = req.body
 
   let resources = loadResources()
 
-  // 优先按id删除
   if (id) {
     const target = resources.find(r => r.id === id)
     if (target) {
-      // 删除文件
       const filePath = path.join(videoDir, target.fileName)
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath)
@@ -208,7 +200,6 @@ router.delete('/delete', (req: Request, res: Response) => {
     }
   }
 
-  // 兼容按ossPath删除
   if (ossPath) {
     const fileName = ossPath.split('/').pop()
     if (fileName) {

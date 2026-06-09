@@ -7,8 +7,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": false,
-    "outDir": "./api/dist",
+    "outDir": "./server/dist",
     "types": ["node", "express"]
   },
-  "include": ["api/**/*.ts"]
+  "include": ["server/**/*.ts"]
 }
