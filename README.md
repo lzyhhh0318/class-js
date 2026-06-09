@@ -1,38 +1,82 @@
-# class-js
 
-This template should help get you started developing with Vue 3 in Vite.
+# AI时间规划局
 
-## Recommended IDE Setup
+## 一句话介绍
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+**AI时间规划局**是一款专为移动端打造的PWA应用，通过AI根据用户选择的碎片时间和场景，智能推荐合适的任务，帮助用户充分利用闲暇时间。
 
-## Recommended Browser Setup
+---
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## 项目概述
 
-## Customize configuration
+AI时间规划局是一款专为移动端打造的PWA（渐进式Web应用），旨在帮助用户在碎片化时间（如通勤、排队、休息）内快速获取高效的任务建议。核心解决用户"有几分钟空闲但不知道干什么"的痛点，主打极简交互、快速响应和类似原生App的体验。
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+## 详细功能介绍
 
-## Project Setup
+### 首页：轻松开启时间管理
 
-```sh
+打开应用，首先映入眼帘的是简洁的首页。在这里，用户可以通过大按钮轻松选择可用的碎片时间——5分钟、10分钟、15分钟或30分钟。每个按钮点击时都会带来轻微的触觉震动反馈和动态缩放效果，让交互更加愉悦。在页面下方，用户还可以选择当前所处的场景，比如通勤、等人、休息、工作间隙或学习时间等，场景选择以胶囊式按钮组呈现，支持横向滑动。选择好时间和场景后，系统会自动触发AI推荐，并显示优雅的加载动画，只需几秒就能得到个性化的任务建议。
+
+### 推荐结果页：一目了然的智能建议
+
+推荐结果以全屏卡片的形式呈现，聚焦核心内容。任务名称配以生动的Emoji图标，配合流畅的渐入动画，给用户带来愉悦的视觉体验。卡片上清晰地说明了推荐这个任务的原因，强调其时间短、高收益的特点，让用户能够快速理解任务的价值。每个推荐任务都会附带3个简洁明了的执行步骤，并配有进度指示器，用户可以立即开始行动。页面底部提供了三个操作按钮："开始执行"将带用户进入专注的任务执行页面，"再换一个"可以获取新的推荐，"返回首页"则让用户重新选择时间和场景。
+
+### 任务执行页：专注完成每一件事
+
+进入任务执行页面，用户将进入沉浸式的专注体验。页面顶部实时显示倒计时，进度条可视化时间流逝，让用户对剩余时间一目了然。当时间结束时，系统会及时发出提醒。执行步骤逐个展示，用户可以点击标记已完成的步骤，完成后会出现令人愉悦的成就感动画。系统会自动记录任务的开始时间和完成状态，并在任务结束后保存到历史记录中，方便用户后续查看和回顾。
+
+### 任务页：回顾与管理你的时间
+
+任务页是用户回顾和管理所有历史任务的地方。所有历史任务按时间倒序排列，清晰展示任务名称、时长、场景和完成状态，点击任意任务可以查看详细信息。用户可以通过多种方式筛选任务，比如按时间筛选（今天、本周、本月）、按完成状态筛选或按场景分类查看，快速找到想要的记录。页面还提供了丰富的数据统计，包括总完成任务数、累计利用时间、任务完成率以及常用场景分析，让用户直观了解自己的时间利用情况。
+
+### 个人页：个性化你的体验
+
+在个人页面，用户可以根据自己的喜好定制应用体验。主题切换功能提供三种选择：深色模式（默认，护眼科技风）、浅色模式（清新明亮）以及赛博朋克风格（炫酷霓虹），用户可以根据心情或环境自由切换。通知设置允许用户控制任务完成提醒、每日使用提醒以及震动反馈开关。个人偏好设置让用户可以设定默认时间、管理常用场景和选择语言。此外，用户还可以查看使用数据、导出数据，或者谨慎地清空所有记录。
+
+### 特色功能：让体验更出色
+
+AI时间规划局具备多项特色功能，让用户体验更加出色。作为一款PWA应用，它可以被添加到手机桌面，全屏运行且无浏览器地址栏，离线也能使用基本功能，启动速度快得就像原生应用一样。应用采用本地优先的设计理念，所有数据都存储在用户的设备上，充分保护隐私，用户无需注册登录即可使用全部核心功能，同时也支持数据备份与恢复。智能推荐基于AI大模型，结合用户选择的时间和场景，推荐结果更加个性化，并且会持续学习用户的偏好，让推荐越来越精准。
+
+## 主要页面
+
+| 页面 | 路由 | 功能描述 |
+|------|------|----------|
+| 首页 | `/` | 选择时间和场景，触发AI推荐 |
+| 推荐页 | `/recommendation` | 展示AI推荐的任务卡片 |
+| 任务页 | `/tasks` | 任务历史管理 |
+| 个人页 | `/profile` | 用户设置和偏好 |
+| 执行页 | `/execution` | 任务执行追踪 |
+
+## 快速开始
+
+### 安装依赖
+```bash
 npm install
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
+### 配置环境变量
+```env
+DASHSCOPE_API_KEY=your_api_key_here
 ```
 
-### Compile and Minify for Production
-
-```sh
-npm run build
+### 启动开发服务
+```bash
+npm run dev  # 同时启动前后端
+# 或分别启动
+npm run client:dev  # 前端
+npm run server:dev  # 后端
 ```
+
+## 设计理念
+
+AI时间规划局遵循移动优先的设计原则，专为移动端打造，在PC端也保持手机尺寸的容器，确保核心场景体验不被打折。整体设计风格极简，去除多余装饰，专注核心功能。大字号、大按钮的设计让用户无需思考就能秒懂操作。深色主题配合荧光绿高亮色，营造出强烈的科技感。通过PWA技术，应用支持添加到桌面、全屏运行，带来接近原生App的体验。
+
+## 目标用户
+
+AI时间规划局主要面向希望充分利用碎片化时间的年轻用户群体，帮助他们把每一段闲暇时光都变得更有意义。
+
+## 其他文档
+
+项目详细文档位于 `.trae/documents/` 目录：
+- [产品需求文档 (PRD)](.trae/documents/prd.md)
+- [技术架构文档](.trae/documents/technical-architecture.md)
